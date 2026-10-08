@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "finscope-ai-research: a modular, reproducible financial-research workbench with an evidence-first reporting layer"
+authors:
+  - family-names: Monavvari
+    given-names: Aydin
+    email: 245710241+aydinmonavvari@users.noreply.github.com
+version: 1.0.0
+date-released: "2026-10-08"
+license: MIT
+repository-code: "https://github.com/aydinmonavvari/finscope-ai-research"
+keywords:
+  - financial-research
+  - reproducibility
+  - forecasting-evaluation
+  - portfolio-optimization
+  - value-at-risk
+  - capstone
+abstract: "Finscope is the integrating capstone of a ten-repository research portfolio: a modular workbench that runs an end-to-end financial-research cycle on real public data (Yahoo Finance, FRED) — ingestion, diagnostic analytics, a rolling-origin inflation-forecasting study with Diebold-Mariano comparison, walk-forward portfolio construction net of costs, VaR/ES risk reporting, and an evidence-first research brief that documents epistemic limits at every stage. A research workbench for evaluating methods, not a trading system."
