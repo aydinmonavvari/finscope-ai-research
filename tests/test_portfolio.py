@@ -173,3 +173,55 @@ def test_max_sharpe_fallback_counted_on_scheme_field():
         schemes["max_sharpe"].fn(frame),
         min_variance_weights(frame.cov().to_numpy(), cap=0.40),
     )
+
+
+def test_min_variance_and_inv_vol_fallbacks_counted_on_scheme_field(monkeypatch):
+    """Fallbacks of EVERY scheme with a fallback path must be counted — regression.
+
+    Min-variance silently falls back to equal weights when SLSQP fails or the
+    covariance is non-finite; inverse-volatility falls back when any trailing
+    vol is degenerate. Both must increment their Scheme.fallbacks field so
+    ``fallback_share`` in portfolio.json is complete (max_sharpe was counted
+    before this test existed; min_var/inv_vol were not).
+    """
+    import finscope.portfolio.construct as construct
+
+    class ForcedFailure:
+        success = False
+        message = "forced failure for the fallback test"
+        x = None
+
+    monkeypatch.setattr(construct, "minimize", lambda *args, **kwargs: ForcedFailure())
+
+    schemes = build_schemes(cap=0.40)
+    # 3 assets: 3 x 0.40 cap keeps the simplex feasible (cap * n >= 1) so the
+    # only failure source in this test is the forced SLSQP breakdown
+    frame = pd.DataFrame(
+        {"a": [0.01, -0.01] * 6, "b": [0.02, -0.02] * 6, "c": [0.005, 0.015] * 6}
+    )
+
+    assert schemes["min_var"].fallbacks == 0
+    weights = schemes["min_var"].fn(frame)  # SLSQP forced to fail -> equal weights
+    assert schemes["min_var"].fallbacks == 1
+    assert np.allclose(weights, [1 / 3, 1 / 3, 1 / 3])
+    schemes["min_var"].fn(frame)
+    assert schemes["min_var"].fallbacks == 2
+
+    # non-finite covariance takes the other documented min-variance fallback path
+    bad_cov = np.array([[np.nan, 0.0], [0.0, 0.09]])
+    flagged_weights, fell_back = construct.min_variance_weights_flagged(
+        bad_cov, cap=1.0, allow_fallback=True
+    )
+    assert fell_back
+    assert np.allclose(flagged_weights, [0.5, 0.5])
+
+    # inverse-volatility degenerate-vol fallback is counted on its own scheme
+    degenerate = pd.DataFrame({"a": [0.01] * 10, "b": [0.02, -0.02] * 5})
+    assert schemes["inv_vol"].fallbacks == 0
+    inv_weights = schemes["inv_vol"].fn(degenerate)
+    assert schemes["inv_vol"].fallbacks == 1
+    assert np.allclose(inv_weights, [0.5, 0.5])
+
+    # equal weights has no fallback path: its counter stays at zero by construction
+    schemes["equal"].fn(frame)
+    assert schemes["equal"].fallbacks == 0

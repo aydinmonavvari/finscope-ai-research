@@ -167,7 +167,7 @@ contributes 6 trading days at the run date. Documented in §14.
 | 06 | [`fraud-anomaly-detection`](https://github.com/aydinmonavvari/fraud-anomaly-detection) | Fraud/anomaly detection under extreme imbalance; ROC vs PR lesson |
 | 07 | [`dl-financial-time-series`](https://github.com/aydinmonavvari/dl-financial-time-series) | Tiny deep-learning architectures on SPY direction — another honest null |
 | 08 | [`financial-nlp-sentiment`](https://github.com/aydinmonavvari/financial-nlp-sentiment) | Financial PhraseBank benchmark: VADER → TF-IDF → MiniLM → FinBERT |
-| 09 | [`fin-rag-research-assistant`](https://github.com/aydinmonavvari/fin-rag-research-assistant) | Retrieval-augmented research assistant over SEC filings |
+| 09 | [`fin-rag-research-assistant`](https://github.com/aydinmonavvari/fin-rag-research-assistant) | Retrieval-augmented QA over Federal Reserve Beige Book reports, with citation-grounded generation |
 | 10 | **`finscope-ai-research`** (this repo) | **Integrating capstone: one reproducible workbench running the full cycle with an evidence-first reporting layer** |
 
 ## 9 · Experimental design
@@ -196,7 +196,7 @@ discoveries.
 computed against drift-adjusted weights, not last period's target.
 
 **Idempotent stages.** Each CLI stage writes its fragment and can be re-run alone; `all`
-runs ingest → analyze → forecast → optimize → risk → report in one pass (6.3 s wall on
+runs ingest → analyze → forecast → optimize → risk → report in one pass (6.6 s wall on
 cached data; the first network fetch adds seconds, then everything is cached).
 
 ## 10 · Models
@@ -225,7 +225,9 @@ Seed = 42 (unused by the deterministic core; pinned for future stochastic extens
   same origins (Hyndman & Koehler 2006), Diebold-Mariano statistic and p-value with
   Newey-West HAC variance at lag h−1 = 11.
 - **Portfolios:** OOS net Sharpe, CAGR, annualized vol, max DD, hit rate, average
-  turnover per rebalance, cumulative cost drag, fallback share for max-Sharpe.
+  turnover per rebalance, cumulative cost drag, per-scheme fallback share (every
+  scheme with a documented fallback path reports one; only max-Sharpe's
+  tangency → min-variance fallback fires in this run).
 - **Risk:** historical and Gaussian VaR/ES at 95/99% (positive = loss), drawdown table
   with peak/trough/recovery dates.
 
@@ -237,10 +239,12 @@ Actual outputs of the committed run — `reports/metrics.json`, rendered in
 
 **Market diagnostics (daily log returns):** every ticker rejects normality under
 Jarque-Bera (7/7 at 5%; excess kurtosis 4.6–13.7). ADF: log returns stationary for all
-seven (p ≤ 2.6e-18) while log prices are non-stationary (p 0.37–0.95). Ljung-Box(20):
-significant autocorrelation in 6/7 series (AMZN p = 0.14 the exception). Sharpe (rf = 0):
-AAPL 0.80 (CAGR 27.6%) > MSFT 0.75 > SPY 0.72 > JPM 0.54 > AMZN 0.49 > XOM 0.41 ≈ PG 0.42;
-PG has the lowest vol (20.0%), XOM the deepest drawdown (−61.0%).
+seven (largest p ≈ 2.6e-18, XOM) while log prices are non-stationary (p 0.37–0.95).
+Ljung-Box(20): significant autocorrelation in 6/7 series (AMZN p = 0.14 the exception).
+Sharpe (rf = 0): AAPL 0.80 (CAGR 27.6%) > MSFT 0.75 > SPY 0.72 > JPM 0.54 > AMZN 0.49 >
+XOM 0.41 ≈ PG 0.42; SPY itself has the lowest vol of the seven (19.0% — the benchmark,
+not a stock pick; among the six single stocks PG is lowest at 20.0%), and XOM the deepest
+drawdown (−61.0%).
 
 **Forecasting study — 12-month CPI inflation (35 origins, 2016-12-31 → 2025-06-30):**
 
@@ -253,7 +257,10 @@ PG has the lowest vol (20.0%), XOM the deepest drawdown (−61.0%).
 **No model beats the naive benchmark.** Both regressions are significantly worse in the
 direction-aware DM sense — the 2021–2022 inflation surge punished models anchored on
 lagged levels. This is the honest headline, consistent with sibling repo 02's finding that
-naive benchmarks are hard to beat at long horizons.
+naive benchmarks are hard to beat at long horizons. Field semantics: `dm_significant` in
+`reports/forecast.json` flags a significant *improvement* (DM p < 0.05 **and** lower loss
+than the benchmark), so it is `false` for OLS and ridge here even though their p = 0.004
+and 0.005 — they are significantly worse, not better.
 
 **Portfolios — walk-forward OOS, net of 10 bps/side (93 months, 2019-02-28 → 2026-10-31):**
 
@@ -266,7 +273,9 @@ naive benchmarks are hard to beat at long horizons.
 
 The max-Sharpe scheme triggered its documented min-variance fallback in **31/31 folds**
 (the unconstrained tangency violates the 40% cap or assigns negative weights on noisy
-12-month estimates), so it coincides with min-variance — reported, not hidden. The
+12-month estimates), so it coincides with min-variance — reported, not hidden. Every
+scheme reports `fallback_share` in `reports/portfolio.json`; in this run only max-Sharpe's
+is non-zero (equal, inverse-vol and min-variance never used their fallback paths). The
 optimizer's margin over equal weights is 0.13 Sharpe: modest, and attributable to variance
 reduction, not return forecasting.
 
@@ -274,7 +283,7 @@ reduction, not return forecasting.
 
 | Scheme | VaR 95 | ES 95 | VaR 99 | ES 99 |
 | --- | --- | --- | --- | --- |
-| Equal | 7.9% | 9.2% | 9.7% | 9.8% |
+| Equal | 7.9% | 9.2% | 9.7% | 9.7% |
 | Inverse vol | 7.4% | 8.8% | 9.1% | 9.6% |
 | Min variance (= max Sharpe) | 5.9% | 7.8% | 8.7% | 8.8% |
 
@@ -355,10 +364,10 @@ pip install -e .[dev]
 # 2) data (network on the first run only, then cached; datasets are NOT committed)
 python scripts/run_workbench.py ingest        # Yahoo Finance + FRED -> data/raw/
 
-# 3) full cycle (6.3 s on cached data; well under the 8-min budget)
+# 3) full cycle (6.6 s on cached data; well under the 8-min budget)
 python scripts/run_workbench.py all
 
-# 4) verify: lint + 48 offline unit tests (no network)
+# 4) verify: lint + 51 offline unit tests (no network)
 ruff check .
 pytest -q
 ```
@@ -430,7 +439,7 @@ finscope-ai-research/
 │   ├── nlp/sentiment.py       # VADER utility on the bundled illustrative sample
 │   └── reporting/             # brief.py (metrics.json + research brief), figures.py
 ├── scripts/run_workbench.py   # CLI: ingest|analyze|forecast|optimize|risk|report|all
-├── tests/                     # 48 offline tests (math vs hand-computed, no network)
+├── tests/                     # 51 offline tests (math vs hand-computed, no network)
 ├── data/raw/                  # git-ignored caches (.gitkeep tracked)
 ├── data/samples/              # sample_headlines.csv — the ONLY tracked data file
 ├── reports/                   # metrics.json, research_brief.md, stage fragments (committed)

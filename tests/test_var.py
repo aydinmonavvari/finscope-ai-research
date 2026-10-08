@@ -6,11 +6,13 @@ import pytest
 from scipy import stats as sstats
 
 from finscope.risk.var import (
+    MEASURED_N_MONTHLY_OBS,
     VAR_LIMITATIONS,
     drawdown_table,
     gaussian_var_es,
     historical_var_es,
     var_es_table,
+    var_limitations,
 )
 
 
@@ -78,3 +80,12 @@ def test_drawdown_table_dates_and_recovery():
 def test_var_limitations_note_is_present():
     assert "estimates, not guarantees" in VAR_LIMITATIONS
     assert "estimation risk" in VAR_LIMITATIONS
+
+
+def test_var_limitations_uses_measured_sample_size():
+    """The note must carry the MEASURED monthly n (93), never the stale ~92."""
+    assert MEASURED_N_MONTHLY_OBS == 93
+    assert f"only {MEASURED_N_MONTHLY_OBS} monthly out-of-sample observations" in VAR_LIMITATIONS
+    assert "~92" not in VAR_LIMITATIONS
+    assert "only 57 monthly out-of-sample observations" in var_limitations(57)
+    assert "With small monthly out-of-sample samples" in var_limitations(None)

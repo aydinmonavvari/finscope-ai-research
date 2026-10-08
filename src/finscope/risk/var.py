@@ -4,12 +4,13 @@ Conventions: VaR/ES are reported as POSITIVE loss magnitudes (e.g. 0.08 =
 "8% loss"). Historical VaR is the empirical quantile of returns with linear
 interpolation; Gaussian VaR/ES use the sample mean and standard deviation.
 
-Honest limitations (see ``VAR_LIMITATIONS``): VaR is a quantile estimate, not
-a tail guarantee — it says nothing about the size of losses beyond the
-quantile (ES summarizes them but is itself an estimate), both are highly
-sensitive to the sample and window, and small samples (like the ~92 monthly
-OOS observations here) make the 99% quantile essentially the worst observed
-month. None of this is a substitute for judgment or stress testing.
+Honest limitations (see ``var_limitations``/``VAR_LIMITATIONS``): VaR is a
+quantile estimate, not a tail guarantee — it says nothing about the size of
+losses beyond the quantile (ES summarizes them but is itself an estimate),
+both are highly sensitive to the sample and window, and small samples (like
+the 93 monthly OOS observations in the committed run) make the 99% quantile
+essentially the worst observed month. None of this is a substitute for
+judgment or stress testing.
 """
 
 from __future__ import annotations
@@ -20,15 +21,35 @@ from scipy import stats
 
 from finscope.config import VAR_LEVELS
 
-VAR_LIMITATIONS = (
-    "VaR and ES are estimates, not guarantees. A VaR quantile says nothing about "
-    "how bad losses beyond it can be; ES summarizes the tail but is itself an "
-    "estimate with substantial sampling error; both are window- and "
-    "distribution-dependent. With only ~92 monthly out-of-sample observations, "
-    "the 99% historical quantile is close to the single worst observed month — "
-    "estimation risk is first-order, and these figures should be read as "
-    "descriptive statistics, not risk certificates."
-)
+# Measured, not assumed: the committed run's out-of-sample net-return series
+# has 93 monthly observations (reports/risk.json, n_months). The limitation
+# note is rendered from the MEASURED count via ``var_limitations(n)``; the
+# constant below keeps the default text accurate when no count is supplied.
+MEASURED_N_MONTHLY_OBS = 93
+
+
+def var_limitations(n_months: int | None = MEASURED_N_MONTHLY_OBS) -> str:
+    """Limitations note with the measured monthly sample size baked in."""
+    sample = (
+        f"With only {n_months} monthly out-of-sample observations, "
+        if n_months is not None
+        else "With small monthly out-of-sample samples, "
+    )
+    return (
+        "VaR and ES are estimates, not guarantees. A VaR quantile says nothing about "
+        "how bad losses beyond it can be; ES summarizes the tail but is itself an "
+        "estimate with substantial sampling error; both are window- and "
+        "distribution-dependent. "
+        + sample
+        + (
+            "the 99% historical quantile is close to the single worst observed month — "
+            "estimation risk is first-order, and these figures should be read as "
+            "descriptive statistics, not risk certificates."
+        )
+    )
+
+
+VAR_LIMITATIONS = var_limitations()  # default text uses the measured n = 93
 
 
 def historical_var_es(returns, level: float = 0.95) -> dict:

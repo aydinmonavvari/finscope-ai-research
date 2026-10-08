@@ -1,6 +1,6 @@
 # Finscope Research Brief
 
-*Generated 2026-10-08T16:58:19+00:00 — end-to-end research cycle on public data (Yahoo Finance, FRED). Educational research output; finscope is a research workbench for evaluating methods on public data. educational research output; not investment advice, not a market prediction, and not a trading system.*
+*Generated 2026-10-08T21:34:42+00:00 — end-to-end research cycle on public data (Yahoo Finance, FRED). Educational research output; finscope is a research workbench for evaluating methods on public data. educational research output; not investment advice, not a market prediction, and not a trading system.*
 
 ## 1. Scope and data
 
@@ -72,7 +72,7 @@ Daily SPY reference (n=2203): hist VaR95 1.76%, ES95 2.87%, VaR99 3.32%, ES99 4.
 | min var | -18.4% | 2021-12-31 | 2022-09-30 | 2022-11-30 |
 | max sharpe | -18.4% | 2021-12-31 | 2022-09-30 | 2022-11-30 |
 
-**Limitations.** VaR and ES are estimates, not guarantees. A VaR quantile says nothing about how bad losses beyond it can be; ES summarizes the tail but is itself an estimate with substantial sampling error; both are window- and distribution-dependent. With only ~92 monthly out-of-sample observations, the 99% historical quantile is close to the single worst observed month — estimation risk is first-order, and these figures should be read as descriptive statistics, not risk certificates.
+**Limitations.** VaR and ES are estimates, not guarantees. A VaR quantile says nothing about how bad losses beyond it can be; ES summarizes the tail but is itself an estimate with substantial sampling error; both are window- and distribution-dependent. With only 93 monthly out-of-sample observations, the 99% historical quantile is close to the single worst observed month — estimation risk is first-order, and these figures should be read as descriptive statistics, not risk certificates.
 
 ## 6. Sentiment screen (illustrative bundled sample)
 
@@ -93,9 +93,9 @@ Daily SPY reference (n=2203): hist VaR95 1.76%, ES95 2.87%, VaR99 3.32%, ES99 4.
 **Limitations (per module and global):**
 
 - Data: seven US tickers and three FRED series; no survivorship-free universe, no transaction-cost microstructure, dividend/tax treatment simplified.
-- Forecast: ~3 feature set, expanding-window OLS/ridge on modest training pools; DM comparisons are multiple and low-powered at n≈36 origins — nothing here is a forecast of future inflation.
+- Forecast: ~3 feature set, expanding-window OLS/ridge on modest training pools; DM comparisons are multiple and low-powered at n=35 origins — nothing here is a forecast of future inflation.
 - Portfolio: 12-month covariance estimates are noisy; max-Sharpe falls back to min-variance whenever the tangency solution violates caps; results are one historical path, not a distribution.
-- Risk: quantile estimates on ~92 monthly observations carry first-order estimation risk; VaR/ES are descriptive, not guarantees.
+- Risk: quantile estimates on 93 monthly observations carry first-order estimation risk; VaR/ES are descriptive, not guarantees.
 - Sentiment: the bundled headlines are an illustrative authored sample, not evidence.
 - Global: single data window, single seed, no hyperparameter search; every number is an in-context description of one historical period.
 

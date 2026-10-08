@@ -19,6 +19,27 @@ def test_brief_includes_mandatory_markers():
     assert "## 7." in text
 
 
+def test_brief_limitations_use_measured_scope_numbers():
+    """Limitations must render the MEASURED scope numbers from the fragments.
+
+    Regression guard for the hard-coded 'n≈36 origins' / '~92 monthly
+    observations' strings: the brief generator reads n_origins (forecast) and
+    n_months (risk) from the stage fragments instead.
+    """
+    metrics = {
+        "forecast": {"n_origins": 35},
+        "risk": {"var_table": {"equal": {"n_months": 93}}},
+    }
+    text = render_brief(metrics)
+    assert "low-powered at n=35 origins" in text
+    assert "quantile estimates on 93 monthly observations" in text
+    assert "≈36" not in text and "~92" not in text and "36 origins" not in text
+    # without the fragments the text stays honest (no invented numbers)
+    fallback_text = render_brief({"generated": "2026-10-08T00:00:00+00:00"})
+    assert "low-powered at the available number of rolling origins" in fallback_text
+    assert "quantile estimates on small monthly samples" in fallback_text
+
+
 def test_brief_renders_stage_tables():
     metrics = {
         "analysis": {

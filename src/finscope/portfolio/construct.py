@@ -7,6 +7,13 @@ smooth box bounds) and a closed-form tangency portfolio with a documented
 fallback to minimum variance whenever the tangency solution is infeasible
 (zero/negative excess return or a per-asset cap violation).
 
+Every scheme with a documented fallback path has that fallback COUNTED on its
+``Scheme.fallbacks`` field and reported as ``fallback_share``: max-Sharpe
+(tangency infeasible → capped min-variance), min-variance (non-finite
+covariance or SLSQP failure → equal weights) and inverse-volatility
+(degenerate trailing vol → equal weights). Equal weights has no fallback path
+by construction.
+
 Backtest: rolling 12-month training window → 3-month holding period. Costs of
 10 bps per side are applied on turnover, where the sum of absolute weight
 changes counts buys and sells separately (a full one-way rebalance costs
@@ -30,26 +37,33 @@ def equal_weights(n_assets: int) -> np.ndarray:
     return np.full(n_assets, 1.0 / n_assets)
 
 
-def inverse_vol_weights(returns: pd.DataFrame) -> np.ndarray:
-    """Weight proportional to 1 / trailing volatility (long-only, normalized)."""
+def inverse_vol_weights_flagged(returns: pd.DataFrame) -> tuple[np.ndarray, bool]:
+    """Inverse-vol weights plus a fallback flag (degenerate vol → equal weights)."""
     vol = returns.std(ddof=1).to_numpy(dtype=float)
     vol = np.where(vol > 1e-12, vol, np.nan)  # degenerate/tiny vol cannot be trusted
     inv = 1.0 / vol
     if not np.all(np.isfinite(inv)):
-        return equal_weights(returns.shape[1])
-    return inv / inv.sum()
+        return equal_weights(returns.shape[1]), True
+    return inv / inv.sum(), False
 
 
-def min_variance_weights(
+def inverse_vol_weights(returns: pd.DataFrame) -> np.ndarray:
+    """Weight proportional to 1 / trailing volatility (long-only, normalized)."""
+    weights, _ = inverse_vol_weights_flagged(returns)
+    return weights
+
+
+def min_variance_weights_flagged(
     cov: np.ndarray,
     cap: float = ASSET_CAP,
     allow_fallback: bool = True,
     maxiter: int = 1000,
-) -> np.ndarray:
-    """Long-only capped minimum-variance weights via SLSQP (objective x 1e3).
+) -> tuple[np.ndarray, bool]:
+    """Long-only capped minimum-variance weights plus a fallback flag.
 
-    Falls back to equal weights (documented) when the optimizer fails or the
-    covariance is not usable; raise instead with ``allow_fallback=False``.
+    Returns ``(weights, used_fallback)``. Falls back to equal weights
+    (documented) when the covariance is not usable or the optimizer fails;
+    raise instead with ``allow_fallback=False``.
     """
     cov = np.asarray(cov, dtype=float)
     n = cov.shape[0]
@@ -59,7 +73,7 @@ def min_variance_weights(
         )
     if not np.all(np.isfinite(cov)):
         if allow_fallback:
-            return equal_weights(n)
+            return equal_weights(n), True
         raise ValueError("covariance contains non-finite values")
     objective = lambda w: 1e3 * float(w @ cov @ w)  # noqa: E731 - scaled for conditioning
     constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
@@ -81,10 +95,29 @@ def min_variance_weights(
             and np.all(candidate <= cap + 1e-6)
         )
     if weights_ok:
-        return np.asarray(result.x, dtype=float)
+        return np.asarray(result.x, dtype=float), False
     if allow_fallback:
-        return equal_weights(n)
+        return equal_weights(n), True
     raise RuntimeError(f"SLSQP did not converge to a feasible solution: {result.message}")
+
+
+def min_variance_weights(
+    cov: np.ndarray,
+    cap: float = ASSET_CAP,
+    allow_fallback: bool = True,
+    maxiter: int = 1000,
+) -> np.ndarray:
+    """Long-only capped minimum-variance weights via SLSQP (objective x 1e3).
+
+    Falls back to equal weights (documented) when the optimizer fails or the
+    covariance is not usable; raise instead with ``allow_fallback=False``.
+    The flagged variant ``min_variance_weights_flagged`` reports whether the
+    fallback was used, so schemes can count it.
+    """
+    weights, _ = min_variance_weights_flagged(
+        cov, cap=cap, allow_fallback=allow_fallback, maxiter=maxiter
+    )
+    return weights
 
 
 def tangency_weights(
@@ -125,19 +158,36 @@ class Scheme:
 
 
 def build_schemes(cap: float = ASSET_CAP) -> dict[str, Scheme]:
-    """The four study schemes over a trailing monthly-return window."""
+    """The four study schemes over a trailing monthly-return window.
+
+    Each ``Scheme`` instance is the single source of truth for its own
+    fallback count: the closures increment the dataclass field, which the
+    reporting stage reads and reports as ``fallback_share``.
+    """
 
     def equal_fn(window: pd.DataFrame) -> np.ndarray:
         return equal_weights(window.shape[1])
 
+    inv_vol_scheme = Scheme("inv_vol", equal_fn)  # fn replaced below
+
     def inv_vol_fn(window: pd.DataFrame) -> np.ndarray:
-        return inverse_vol_weights(window)
+        weights, fell_back = inverse_vol_weights_flagged(window)
+        if fell_back:
+            inv_vol_scheme.fallbacks += 1
+        return weights
+
+    inv_vol_scheme.fn = inv_vol_fn
+
+    min_var_scheme = Scheme("min_var", equal_fn)  # fn replaced below
 
     def min_var_fn(window: pd.DataFrame) -> np.ndarray:
-        return min_variance_weights(window.cov().to_numpy(), cap=cap)
+        weights, fell_back = min_variance_weights_flagged(window.cov().to_numpy(), cap=cap)
+        if fell_back:
+            min_var_scheme.fallbacks += 1
+        return weights
 
-    # The Scheme instance is the single source of truth for the fallback count:
-    # the closure increments the dataclass field, which the reporting stage reads.
+    min_var_scheme.fn = min_var_fn
+
     max_sharpe_scheme = Scheme("max_sharpe", equal_fn)  # fn replaced below
 
     def max_sharpe_fn(window: pd.DataFrame) -> np.ndarray:
@@ -151,8 +201,8 @@ def build_schemes(cap: float = ASSET_CAP) -> dict[str, Scheme]:
     max_sharpe_scheme.fn = max_sharpe_fn
     return {
         "equal": Scheme("equal", equal_fn),
-        "inv_vol": Scheme("inv_vol", inv_vol_fn),
-        "min_var": Scheme("min_var", min_var_fn),
+        "inv_vol": inv_vol_scheme,
+        "min_var": min_var_scheme,
         "max_sharpe": max_sharpe_scheme,
     }
 

@@ -18,7 +18,8 @@
       "hit_rate": 0.6666666666666666,
       "avg_turnover": 0.09974523023556267,
       "total_cost_pct": 0.003092102137302443,
-      "n_folds": 31
+      "n_folds": 31,
+      "fallback_share": 0.0
     },
     "inv_vol": {
       "cagr": 0.19944593224456497,
@@ -30,7 +31,8 @@
       "hit_rate": 0.6774193548387096,
       "avg_turnover": 0.1516966672707376,
       "total_cost_pct": 0.004702596685392865,
-      "n_folds": 31
+      "n_folds": 31,
+      "fallback_share": 0.0
     },
     "min_var": {
       "cagr": 0.21831845716288245,
@@ -42,7 +44,8 @@
       "hit_rate": 0.6774193548387096,
       "avg_turnover": 0.5550781983457459,
       "total_cost_pct": 0.01720742414871812,
-      "n_folds": 31
+      "n_folds": 31,
+      "fallback_share": 0.0
     },
     "max_sharpe": {
       "cagr": 0.21831845716288245,

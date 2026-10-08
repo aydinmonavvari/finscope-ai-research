@@ -123,7 +123,10 @@ scaled ×1e3 to fix the tiny-gradient stall; cap 40% enforced as smooth box boun
 max-Sharpe via the closed-form tangency w ∝ Σ⁻¹μ with a documented fallback to capped
 min-variance whenever the tangency solution is infeasible (singular covariance,
 non-positive excess return, or cap/negativity violation). Fallbacks are counted per fold
-and reported. Walk-forward backtest: 12-month training window → 3-month hold, folds
+and reported for every scheme with a fallback path (tangency → min-variance;
+min-variance → equal weights on non-finite covariance or optimizer failure;
+inverse-volatility → equal weights on degenerate trailing vol). Walk-forward backtest:
+12-month training window → 3-month hold, folds
 contiguous and non-overlapping (`hold_start == train_end`); 10 bps per side charged on
 turnover against drift-adjusted weights; entry from cash counts as full turnover.
 
@@ -144,9 +147,10 @@ Two DM comparisons share one benchmark, so marginal p-values are read under an e
 Holm/Bonferroni-style caution with low power at n = 35 acknowledged. Cost sensitivity is
 structural, not incidental: turnover and cumulative cost drag are reported per scheme.
 Determinism: closed-form OLS/ridge/tangency and seeded scikit-learn make repeated runs on
-the same cache numerically identical. The offline test suite (48 tests) covers the math
+the same cache numerically identical. The offline test suite (51 tests) covers the math
 against hand-computed values — log returns, Sharpe, drawdown, MASE, DM lag-0 equivalence
-to a t-test, SLSQP cap behavior, tangency fallback paths, rebalance-cost arithmetic,
+to a t-test, SLSQP cap behavior, tangency and min-variance/inverse-vol fallback paths,
+rebalance-cost arithmetic,
 walk-forward non-overlap, VaR/ES monotonicity and z-value correctness, VADER label
 boundaries, and brief rendering invariants (limitation marker present; no absolute paths
 in outputs).
@@ -156,11 +160,12 @@ in outputs).
 Actual outputs (`reports/metrics.json`).
 
 **Diagnostics.** Jarque-Bera rejects normality for all seven tickers (excess kurtosis
-4.6–13.7). ADF: daily log returns stationary for all (p ≤ 2.6e-18); log prices
+4.6–13.7). ADF: daily log returns stationary for all (largest p ≈ 2.6e-18, XOM); log prices
 non-stationary (p 0.37–0.95). Ljung-Box(20): significant serial dependence in 6/7 series
 (AMZN p = 0.14). Net-of-nothing Sharpe (rf = 0): AAPL 0.80 (CAGR 27.6%), MSFT 0.75,
 SPY 0.72, JPM 0.54, AMZN 0.49, PG 0.42, XOM 0.41; XOM's max drawdown −61.0% is the
-deepest, PG's vol (20.0%) the lowest.
+deepest. SPY has the lowest vol of the seven (19.0% — the benchmark itself, not a stock
+pick); among the six single stocks, PG's vol (20.0%) is the lowest.
 
 **Forecasting (12-month CPI inflation, 35 origins 2016-12-31 → 2025-06-30).**
 
@@ -171,7 +176,10 @@ deepest, PG's vol (20.0%) the lowest.
 | Ridge | 3.28 | 1.52 | +2.81 | 0.005 |
 
 Both regressions are significantly **worse** than the naive benchmark in the
-direction-aware sense. No multiple-testing-robust improvement exists. The failures
+direction-aware sense. No multiple-testing-robust improvement exists. Field semantics:
+`dm_significant` in `reports/forecast.json` flags a significant *improvement* (DM
+p < 0.05 **and** lower loss than the benchmark), so it is `false` for OLS and ridge here
+despite their p = 0.004/0.005 — they are significantly worse, not better. The failures
 concentrate in the 2021–2022 inflation surge, where lagged-level models undershot the
 turning point by wide margins (fig05).
 
@@ -194,7 +202,7 @@ XOM 15.3%, JPM 7.9%, AAPL 7.4%, AMZN 4.7%. All schemes peaked 2021-12-31 and tro
 
 | Scheme | VaR 95 | ES 95 | VaR 99 | ES 99 |
 | --- | --- | --- | --- | --- |
-| Equal | 7.9% | 9.2% | 9.7% | 9.8% |
+| Equal | 7.9% | 9.2% | 9.7% | 9.7% |
 | Inverse vol | 7.4% | 8.8% | 9.1% | 9.6% |
 | Min variance (= max Sharpe) | 5.9% | 7.8% | 8.7% | 8.8% |
 

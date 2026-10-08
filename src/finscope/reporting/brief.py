@@ -320,19 +320,35 @@ def render_brief(metrics: dict) -> str:
     lines.append("")
     lines.append("**Limitations (per module and global):**")
     lines.append("")
+    # Scope numbers are read from the stage fragments when available (measured,
+    # not hard-coded): forecast origins and the monthly risk sample size.
+    n_origins = forecast.get("n_origins")
+    origins_text = (
+        f"low-powered at n={n_origins} origins"
+        if n_origins
+        else "low-powered at the available number of rolling origins"
+    )
+    risk_table = risk.get("var_table", {})
+    first_risk = next(iter(risk_table.values()), {}) if risk_table else {}
+    n_monthly = first_risk.get("n_months")
+    monthly_text = (
+        f"quantile estimates on {n_monthly} monthly observations carry first-order "
+        "estimation risk"
+        if n_monthly
+        else "quantile estimates on small monthly samples carry first-order estimation risk"
+    )
     limitations = metrics.get(
         "limitations",
         [
             "Data: seven US tickers and three FRED series; no survivorship-free universe, "
             "no transaction-cost microstructure, dividend/tax treatment simplified.",
             "Forecast: ~3 feature set, expanding-window OLS/ridge on modest training pools; "
-            "DM comparisons are multiple and low-powered at n≈36 origins — nothing here is "
+            f"DM comparisons are multiple and {origins_text} — nothing here is "
             "a forecast of future inflation.",
             "Portfolio: 12-month covariance estimates are noisy; max-Sharpe falls back to "
             "min-variance whenever the tangency solution violates caps; results are one "
             "historical path, not a distribution.",
-            "Risk: quantile estimates on ~92 monthly observations carry first-order "
-            "estimation risk; VaR/ES are descriptive, not guarantees.",
+            f"Risk: {monthly_text}; VaR/ES are descriptive, not guarantees.",
             "Sentiment: the bundled headlines are an illustrative authored sample, not evidence.",
             "Global: single data window, single seed, no hyperparameter search; every number "
             "is an in-context description of one historical period.",

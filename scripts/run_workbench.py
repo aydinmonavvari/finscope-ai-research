@@ -185,11 +185,13 @@ def stage_optimize(prices=None) -> dict:
                 "n_folds": run["n_folds"],
             }
         )
-        if name == "max_sharpe":
-            n_folds = run["n_folds"]
-            summary["fallback_share"] = (
-                float(run["scheme"].fallbacks / n_folds) if n_folds else 0.0
-            )
+        n_folds = run["n_folds"]
+        # fallback_share is reported for EVERY scheme so the artifact is complete;
+        # in the committed run only max_sharpe ever fires (its documented
+        # tangency -> min-variance fallback), the others report 0.0.
+        summary["fallback_share"] = (
+            float(run["scheme"].fallbacks / n_folds) if n_folds else 0.0
+        )
         scheme_payload[name] = summary
         net_series[name] = run["net"]
     ranking = sorted(scheme_payload, key=lambda k: scheme_payload[k]["sharpe"], reverse=True)
@@ -240,7 +242,7 @@ def stage_risk(prices=None, net_series=None) -> dict:
     from finscope.portfolio.construct import build_schemes, walk_forward_backtest
     from finscope.reporting.brief import write_fragment
     from finscope.reporting.figures import plot_var_es
-    from finscope.risk.var import VAR_LIMITATIONS, drawdown_table, var_es_table
+    from finscope.risk.var import drawdown_table, var_es_table, var_limitations
 
     if net_series is None or prices is None:
         if prices is None:
@@ -271,6 +273,9 @@ def stage_risk(prices=None, net_series=None) -> dict:
     spy_hist95 = var_es_table(spy_daily)
     drawdowns = drawdown_table(pd.DataFrame(net_series))
     figure = plot_var_es(var_table)
+    # the limitations note carries the MEASURED monthly sample size (n_months
+    # is identical across schemes by construction; 93 in the committed run)
+    measured_n = int(len(next(iter(net_series.values()))))
     payload = {
         "frequency": "monthly OOS net portfolio returns; daily SPY reference",
         "var_table": var_table,
@@ -282,7 +287,7 @@ def stage_risk(prices=None, net_series=None) -> dict:
             "es99": spy_hist95["99"]["hist_es"],
         },
         "drawdowns": {k: dict(v) for k, v in drawdowns.iterrows()},
-        "limitations": VAR_LIMITATIONS,
+        "limitations": var_limitations(measured_n),
         "figures": [figure],
     }
     write_fragment("risk", payload)
@@ -372,7 +377,9 @@ def _build_findings(metrics: dict) -> list[str]:
             findings.append(
                 f"Risk: the {worst.replace('_', ' ')} scheme shows the deepest 99% monthly "
                 f"expected shortfall ({table[worst]['es99'] * 100:.1f}%); quantiles on ~"
-                f"{table[worst].get('n_months', 92)} observations carry "
+                # default 93 = the measured OOS months of the committed run; the
+                # key is always present in fragments written by stage_risk
+                f"{table[worst].get('n_months', 93)} observations carry "
                 "first-order estimation risk."
             )
     sentiment = metrics.get("sentiment", {})

@@ -188,7 +188,8 @@
         "hit_rate": 0.6666666666666666,
         "avg_turnover": 0.09974523023556267,
         "total_cost_pct": 0.003092102137302443,
-        "n_folds": 31
+        "n_folds": 31,
+        "fallback_share": 0.0
       },
       "inv_vol": {
         "cagr": 0.19944593224456497,
@@ -200,7 +201,8 @@
         "hit_rate": 0.6774193548387096,
         "avg_turnover": 0.1516966672707376,
         "total_cost_pct": 0.004702596685392865,
-        "n_folds": 31
+        "n_folds": 31,
+        "fallback_share": 0.0
       },
       "min_var": {
         "cagr": 0.21831845716288245,
@@ -212,7 +214,8 @@
         "hit_rate": 0.6774193548387096,
         "avg_turnover": 0.5550781983457459,
         "total_cost_pct": 0.01720742414871812,
-        "n_folds": 31
+        "n_folds": 31,
+        "fallback_share": 0.0
       },
       "max_sharpe": {
         "cagr": 0.21831845716288245,
@@ -367,7 +370,7 @@
         "recovery_date": "2022-11-30"
       }
     },
-    "limitations": "VaR and ES are estimates, not guarantees. A VaR quantile says nothing about how bad losses beyond it can be; ES summarizes the tail but is itself an estimate with substantial sampling error; both are window- and distribution-dependent. With only ~92 monthly out-of-sample observations, the 99% historical quantile is close to the single worst observed month \u2014 estimation risk is first-order, and these figures should be read as descriptive statistics, not risk certificates.",
+    "limitations": "VaR and ES are estimates, not guarantees. A VaR quantile says nothing about how bad losses beyond it can be; ES summarizes the tail but is itself an estimate with substantial sampling error; both are window- and distribution-dependent. With only 93 monthly out-of-sample observations, the 99% historical quantile is close to the single worst observed month \u2014 estimation risk is first-order, and these figures should be read as descriptive statistics, not risk certificates.",
     "figures": [
       "figures/fig08_var_es.png"
     ]
@@ -398,7 +401,7 @@
     "Risk: the equal scheme shows the deepest 99% monthly expected shortfall (9.7%); quantiles on ~93 observations carry first-order estimation risk.",
     "Sentiment: VADER scoring of the bundled illustrative sample runs end to end (no network, no dataset claims); the evidence-bearing benchmark is the financial-nlp-sentiment repository."
   ],
-  "generated": "2026-10-08T16:58:19+00:00",
+  "generated": "2026-10-08T21:34:42+00:00",
   "paths": {
     "brief": "reports/research_brief.md",
     "metrics": "reports/metrics.json",

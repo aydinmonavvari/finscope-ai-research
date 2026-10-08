@@ -79,7 +79,7 @@
       "recovery_date": "2022-11-30"
     }
   },
-  "limitations": "VaR and ES are estimates, not guarantees. A VaR quantile says nothing about how bad losses beyond it can be; ES summarizes the tail but is itself an estimate with substantial sampling error; both are window- and distribution-dependent. With only ~92 monthly out-of-sample observations, the 99% historical quantile is close to the single worst observed month \u2014 estimation risk is first-order, and these figures should be read as descriptive statistics, not risk certificates.",
+  "limitations": "VaR and ES are estimates, not guarantees. A VaR quantile says nothing about how bad losses beyond it can be; ES summarizes the tail but is itself an estimate with substantial sampling error; both are window- and distribution-dependent. With only 93 monthly out-of-sample observations, the 99% historical quantile is close to the single worst observed month \u2014 estimation risk is first-order, and these figures should be read as descriptive statistics, not risk certificates.",
   "figures": [
     "figures/fig08_var_es.png"
   ]
