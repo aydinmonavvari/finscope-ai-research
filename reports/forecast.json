@@ -1,0 +1,50 @@
+{
+  "target": "12-month CPI inflation (%) from CPIAUCSL",
+  "horizon_months": 12,
+  "step_months": 3,
+  "min_train_pairs": 24,
+  "ridge_alpha": 1.0,
+  "features": [
+    "inflation",
+    "unemployment_rate",
+    "yield_10y"
+  ],
+  "n_origins": 35,
+  "first_origin": "2016-12-31",
+  "last_origin": "2025-06-30",
+  "models": {
+    "seasonal_naive": {
+      "rmse": 2.513665026711283,
+      "mae": 1.727743363828899,
+      "mase": 1.0
+    },
+    "ols": {
+      "rmse": 3.300412654315885,
+      "mae": 2.643354792941487,
+      "mase": 1.529946430865448,
+      "dm_stat": 2.8742109427825926,
+      "dm_p": 0.004050383406208821,
+      "mean_loss_diff": 4.574211822256993,
+      "n_origins": 35,
+      "beats_naive": false,
+      "dm_significant": false
+    },
+    "ridge": {
+      "rmse": 3.2765873300179704,
+      "mae": 2.61873891099164,
+      "mase": 1.5156990128372894,
+      "dm_stat": 2.813243911856553,
+      "dm_p": 0.00490444338832433,
+      "mean_loss_diff": 4.417512664722859,
+      "n_origins": 35,
+      "beats_naive": false,
+      "dm_significant": false
+    }
+  },
+  "verdict": "Seasonal-naive benchmark: RMSE 2.51 pp (MASE 1.00 by definition). OLS: RMSE 3.30 pp, MASE 1.53 (HIGHER error than naive), DM stat 2.87, p 0.004. RIDGE: RMSE 3.28 pp, MASE 1.52 (HIGHER error than naive), DM stat 2.81, p 0.005. No model delivers a multiple-testing-robust improvement over the naive benchmark; the honest conclusion is that simple benchmarks remain hard to beat at this horizon with this feature set.",
+  "multiple_testing_note": "two DM comparisons (OLS, ridge) against the same benchmark; marginal p-values are read with a Holm/Bonferroni-style caution and low power at n=35 origins is acknowledged",
+  "figures": [
+    "figures/fig04_inflation_backtest.png",
+    "figures/fig05_inflation_errors.png"
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "tickers_used": [
+    "SPY",
+    "AAPL",
+    "MSFT",
+    "JPM",
+    "XOM",
+    "PG",
+    "AMZN"
+  ],
+  "window": {
+    "start": "2018-01-02",
+    "end": "2026-10-08",
+    "n_days": 2204
+  },
+  "tickers": {
+    "SPY": {
+      "obs": 2203.0,
+      "cagr": 0.14582342154063777,
+      "ann_vol": 0.19022936548305258,
+      "sharpe": 0.7155757663896846,
+      "max_dd": -0.3371725225085366,
+      "skew": -0.5660866821541846,
+      "excess_kurtosis": 13.675512025287464,
+      "jb_p": 0.0,
+      "adf_returns_p": 1.2165152418024461e-27,
+      "adf_logprice_p": 0.9423517533751637,
+      "ljungbox_p": 2.0262405173665153e-38
+    },
+    "AAPL": {
+      "obs": 2203.0,
+      "cagr": 0.2759488027906707,
+      "ann_vol": 0.3040250920895535,
+      "sharpe": 0.8015458830649954,
+      "max_dd": -0.3851591871349127,
+      "skew": -0.12000593035625402,
+      "excess_kurtosis": 6.100552278399578,
+      "jb_p": 0.0,
+      "adf_returns_p": 3.147960053960187e-28,
+      "adf_logprice_p": 0.7819553844254328,
+      "ljungbox_p": 2.4486113312682452e-08
+    },
+    "MSFT": {
+      "obs": 2203.0,
+      "cagr": 0.24291789447201295,
+      "ann_vol": 0.29017476460951114,
+      "sharpe": 0.7494164984088498,
+      "max_dd": -0.37148489238927407,
+      "skew": 0.0011724671086810361,
+      "excess_kurtosis": 8.122740460952363,
+      "jb_p": 0.0,
+      "adf_returns_p": 1.3744195151885608e-28,
+      "adf_logprice_p": 0.5453610668861611,
+      "ljungbox_p": 1.4885584562688313e-16
+    },
+    "JPM": {
+      "obs": 2203.0,
+      "cagr": 0.1669737318083877,
+      "ann_vol": 0.28475830108291167,
+      "sharpe": 0.5422628358935973,
+      "max_dd": -0.4362651098391904,
+      "skew": -0.09174634959678377,
+      "excess_kurtosis": 12.915992849107052,
+      "jb_p": 0.0,
+      "adf_returns_p": 2.184070739464318e-25,
+      "adf_logprice_p": 0.9519983219290712,
+      "ljungbox_p": 9.598048553907217e-24
+    },
+    "XOM": {
+      "obs": 2203.0,
+      "cagr": 0.1296826275056555,
+      "ann_vol": 0.29996754105914064,
+      "sharpe": 0.40649975737546734,
+      "max_dd": -0.6100658235198191,
+      "skew": -0.2282811648382739,
+      "excess_kurtosis": 5.237842514479386,
+      "jb_p": 0.0,
+      "adf_returns_p": 2.635346392822353e-18,
+      "adf_logprice_p": 0.9258383325651949,
+      "ljungbox_p": 0.00022976686916999307
+    },
+    "PG": {
+      "obs": 2203.0,
+      "cagr": 0.08740951011685438,
+      "ann_vol": 0.20015411217380774,
+      "sharpe": 0.4186687473995845,
+      "max_dd": -0.23772444121593095,
+      "skew": -0.05666973823155089,
+      "excess_kurtosis": 9.391798032414949,
+      "jb_p": 0.0,
+      "adf_returns_p": 4.482339603325965e-28,
+      "adf_logprice_p": 0.42396749925770544,
+      "ljungbox_p": 3.055438214062338e-12
+    },
+    "AMZN": {
+      "obs": 2203.0,
+      "cagr": 0.18277419418021879,
+      "ann_vol": 0.34354699390145405,
+      "sharpe": 0.48861638777148847,
+      "max_dd": -0.5614526325328258,
+      "skew": 0.025250737183693476,
+      "excess_kurtosis": 4.636301237778168,
+      "jb_p": 0.0,
+      "adf_returns_p": 0.0,
+      "adf_logprice_p": 0.36604066175588357,
+      "ljungbox_p": 0.1400156836261065
+    }
+  },
+  "figures": [
+    "figures/fig01_prices_normalized.png",
+    "figures/fig02_rolling_vol.png",
+    "figures/fig03_drawdowns.png"
+  ],
+  "notes": [
+    "Statistics computed on daily log returns; max drawdown on daily simple returns.",
+    "Annualization: 252 trading days; Sharpe uses rf = 0 (documented simplification).",
+    "ADF run on log returns (stationarity) and on log prices (unit-root illustration)."
+  ]
+}

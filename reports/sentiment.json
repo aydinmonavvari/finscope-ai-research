@@ -1,0 +1,19 @@
+{
+  "n_headlines": 10,
+  "mean_compound": 0.20871999999999996,
+  "label_counts": {
+    "positive": 6,
+    "neutral": 4
+  },
+  "tickers": [
+    "AAPL",
+    "AMZN",
+    "JPM",
+    "MSFT",
+    "PG",
+    "SPY",
+    "XOM"
+  ],
+  "note": "Illustrative sample authored by the researcher; not a market dataset.",
+  "benchmark_repo": "financial-nlp-sentiment"
+}

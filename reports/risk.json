@@ -1,0 +1,86 @@
+{
+  "frequency": "monthly OOS net portfolio returns; daily SPY reference",
+  "var_table": {
+    "equal": {
+      "var95": 0.07860133625300011,
+      "es95": 0.09221405051389965,
+      "var99": 0.09684915053119131,
+      "es99": 0.09745815788681414,
+      "gauss_var95": 0.06137834039477429,
+      "gauss_es95": 0.08124427584126012,
+      "gauss_var99": 0.09377806104184996,
+      "gauss_es99": 0.1098885051195038,
+      "n_months": 93
+    },
+    "inv_vol": {
+      "var95": 0.0735349608093764,
+      "es95": 0.08828302902011685,
+      "var99": 0.0911251431690123,
+      "es99": 0.09558899062368435,
+      "gauss_var95": 0.05839413928378773,
+      "gauss_es95": 0.07736576341418619,
+      "gauss_var99": 0.08933531110537254,
+      "gauss_es99": 0.10472050605067872,
+      "n_months": 93
+    },
+    "min_var": {
+      "var95": 0.058681274916507827,
+      "es95": 0.07803403819400363,
+      "var99": 0.08703197467840713,
+      "es99": 0.08818125106219772,
+      "gauss_var95": 0.05584853215880364,
+      "gauss_es95": 0.07449910646258247,
+      "gauss_var99": 0.08626609789477074,
+      "gauss_es99": 0.10139093483721169,
+      "n_months": 93
+    },
+    "max_sharpe": {
+      "var95": 0.058681274916507827,
+      "es95": 0.07803403819400363,
+      "var99": 0.08703197467840713,
+      "es99": 0.08818125106219772,
+      "gauss_var95": 0.05584853215880364,
+      "gauss_es95": 0.07449910646258247,
+      "gauss_var99": 0.08626609789477074,
+      "gauss_es99": 0.10139093483721169,
+      "n_months": 93
+    }
+  },
+  "spy_daily": {
+    "n": 2203,
+    "var95": 0.017615055414702582,
+    "es95": 0.028740030849215142,
+    "var99": 0.03324063602520906,
+    "es99": 0.04931114766094052
+  },
+  "drawdowns": {
+    "equal": {
+      "max_dd": -0.18417130737296106,
+      "peak_date": "2021-12-31",
+      "trough_date": "2022-09-30",
+      "recovery_date": "2023-04-30"
+    },
+    "inv_vol": {
+      "max_dd": -0.21288457687346407,
+      "peak_date": "2021-12-31",
+      "trough_date": "2022-09-30",
+      "recovery_date": "2023-06-30"
+    },
+    "min_var": {
+      "max_dd": -0.18385133284533106,
+      "peak_date": "2021-12-31",
+      "trough_date": "2022-09-30",
+      "recovery_date": "2022-11-30"
+    },
+    "max_sharpe": {
+      "max_dd": -0.18385133284533106,
+      "peak_date": "2021-12-31",
+      "trough_date": "2022-09-30",
+      "recovery_date": "2022-11-30"
+    }
+  },
+  "limitations": "VaR and ES are estimates, not guarantees. A VaR quantile says nothing about how bad losses beyond it can be; ES summarizes the tail but is itself an estimate with substantial sampling error; both are window- and distribution-dependent. With only ~92 monthly out-of-sample observations, the 99% historical quantile is close to the single worst observed month \u2014 estimation risk is first-order, and these figures should be read as descriptive statistics, not risk certificates.",
+  "figures": [
+    "figures/fig08_var_es.png"
+  ]
+}
