@@ -1,0 +1,7 @@
+{
+  "plan": "docs/admissions/PHASE2-P10-PLAN.md (pre-registered, RQ5)",
+  "status": "not_run",
+  "reason": "Could not download FRED series CPIAUCSL and no usable cache exists at <cache path> Run once with network access",
+  "registered_method": "paired circular block bootstrap over the rolling origins (block length 4, B=2000, seed 42) for the RMSE differences OLS-naive and ridge-naive; machinery implemented in finscope.forecast.uncertainty and unit-tested on synthetic data (tests/test_uncertainty.py)",
+  "primary_inferential_tool": "committed DM tests in reports/forecast.json (v1.0.0 artifacts, byte-identical, unchanged by this stage)"
+}

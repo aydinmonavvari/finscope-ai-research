@@ -1,0 +1,404 @@
+{
+  "plan": "docs/admissions/PHASE2-P10-PLAN.md (pre-registered)",
+  "status": "Phase-2 part B uncertainty suite; registered seeds 42; B=2000",
+  "source": {
+    "portfolio": "reports/oos_returns.json (as_of 2026-10-08)",
+    "forecast": "not_run \u2014 macro ingestion unavailable"
+  },
+  "level_cis": {
+    "B": 2000,
+    "block_lens": [
+      3,
+      6,
+      12
+    ],
+    "seed": 42,
+    "confidence_level": 0.95,
+    "statistic": "annualized monthly Sharpe sqrt(12)*mean(r)/std(r, ddof=1), rf = 0, on the 93-month OOS net-return window; circular block bootstrap, percentile intervals; one fresh seed-42 stream per block length",
+    "n_months": 93,
+    "point_estimates": {
+      "equal": 1.226486,
+      "inv_vol": 1.244746,
+      "min_var": 1.366894,
+      "max_sharpe": 1.366894
+    },
+    "levels": {
+      "equal": {
+        "3": {
+          "ci_low": 0.611802,
+          "ci_high": 2.013618
+        },
+        "6": {
+          "ci_low": 0.642553,
+          "ci_high": 1.983114
+        },
+        "12": {
+          "ci_low": 0.679871,
+          "ci_high": 1.979429
+        }
+      },
+      "inv_vol": {
+        "3": {
+          "ci_low": 0.609297,
+          "ci_high": 2.043239
+        },
+        "6": {
+          "ci_low": 0.612754,
+          "ci_high": 2.016963
+        },
+        "12": {
+          "ci_low": 0.667829,
+          "ci_high": 1.996572
+        }
+      },
+      "min_var": {
+        "3": {
+          "ci_low": 0.761635,
+          "ci_high": 2.129179
+        },
+        "6": {
+          "ci_low": 0.715953,
+          "ci_high": 2.120888
+        },
+        "12": {
+          "ci_low": 0.848363,
+          "ci_high": 2.029753
+        }
+      },
+      "max_sharpe": {
+        "3": {
+          "ci_low": 0.761635,
+          "ci_high": 2.129179
+        },
+        "6": {
+          "ci_low": 0.715953,
+          "ci_high": 2.120888
+        },
+        "12": {
+          "ci_low": 0.848363,
+          "ci_high": 2.029753
+        }
+      }
+    },
+    "reading_rule": "no scheme preference is supported unless a 95% CI excludes every other scheme's point estimate (registered decision rule RQ1)"
+  },
+  "pairwise_holm": {
+    "B": 2000,
+    "block_len": 6,
+    "sensitivity_blocks": [
+      3,
+      12
+    ],
+    "seed": 42,
+    "alpha": 0.05,
+    "method": "paired circular-block bootstrap of Sharpe(a) - Sharpe(b) on monthly OOS net returns (identical resampled indices for both legs, fresh seed-42 stream per pair); two-sided add-one p-values; Holm step-down over the 3 distinct pairs (family-wise alpha 0.05)",
+    "family_size": 3,
+    "n_reject_holm_05": 0,
+    "structural_exclusion": {
+      "excluded_pair": [
+        "min_var",
+        "max_sharpe"
+      ],
+      "reason": "max_sharpe fell back to min-variance in 100% of folds (fallback_share = 1.0); its OOS net series is bitwise identical to min_var's by construction, so a zero pairwise difference there is structural, not a finding",
+      "verified_bitwise_identical": true,
+      "distinct_schemes_tested": [
+        "equal",
+        "inv_vol",
+        "min_var"
+      ],
+      "n_pairs_tested": 3
+    },
+    "pairs": [
+      {
+        "pair": "equal__vs__inv_vol",
+        "a": "equal",
+        "b": "inv_vol",
+        "diff": -0.01826,
+        "ci_low": -0.108871,
+        "ci_high": 0.07799,
+        "ci_excludes_zero_unadjusted": false,
+        "sensitivity": {
+          "3": {
+            "ci_low": -0.113756,
+            "ci_high": 0.076713
+          },
+          "12": {
+            "ci_low": -0.105345,
+            "ci_high": 0.068704
+          }
+        },
+        "p_raw": 0.669665,
+        "p_holm": 1.0,
+        "reject_holm_05": false
+      },
+      {
+        "pair": "equal__vs__min_var",
+        "a": "equal",
+        "b": "min_var",
+        "diff": -0.140408,
+        "ci_low": -0.389981,
+        "ci_high": 0.142725,
+        "ci_excludes_zero_unadjusted": false,
+        "sensitivity": {
+          "3": {
+            "ci_low": -0.419765,
+            "ci_high": 0.188919
+          },
+          "12": {
+            "ci_low": -0.321222,
+            "ci_high": 0.100229
+          }
+        },
+        "p_raw": 0.336832,
+        "p_holm": 1.0,
+        "reject_holm_05": false
+      },
+      {
+        "pair": "inv_vol__vs__min_var",
+        "a": "inv_vol",
+        "b": "min_var",
+        "diff": -0.122148,
+        "ci_low": -0.331402,
+        "ci_high": 0.119064,
+        "ci_excludes_zero_unadjusted": false,
+        "sensitivity": {
+          "3": {
+            "ci_low": -0.357106,
+            "ci_high": 0.152288
+          },
+          "12": {
+            "ci_low": -0.283716,
+            "ci_high": 0.106589
+          }
+        },
+        "p_raw": 0.342829,
+        "p_holm": 1.0,
+        "reject_holm_05": false
+      }
+    ]
+  },
+  "cost_grid": {
+    "grid": [
+      0.0,
+      10.0,
+      25.0,
+      50.0,
+      75.0,
+      100.0
+    ],
+    "statistic": "monthly-convention Sharpe of the EXACTLY recomputed net series net(bps) = gross - fold_turnover*bps/1e4 (no re-estimation); registered exact claims: mean net return affine in bps, net bitwise gross at 0 bps",
+    "rows_12dp": [
+      {
+        "cost_bps": 0.0,
+        "scheme": "equal",
+        "mean_net_return": 0.016866263626,
+        "sharpe_net": 1.228840101067
+      },
+      {
+        "cost_bps": 0.0,
+        "scheme": "inv_vol",
+        "mean_net_return": 0.016365487064,
+        "sharpe_net": 1.248535610229
+      },
+      {
+        "cost_bps": 0.0,
+        "scheme": "min_var",
+        "mean_net_return": 0.017796571528,
+        "sharpe_net": 1.380362650019
+      },
+      {
+        "cost_bps": 10.0,
+        "scheme": "equal",
+        "mean_net_return": 0.016833015216,
+        "sharpe_net": 1.22648575638
+      },
+      {
+        "cost_bps": 10.0,
+        "scheme": "inv_vol",
+        "mean_net_return": 0.016314921463,
+        "sharpe_net": 1.244745784346
+      },
+      {
+        "cost_bps": 10.0,
+        "scheme": "min_var",
+        "mean_net_return": 0.017611544838,
+        "sharpe_net": 1.366894196277
+      },
+      {
+        "cost_bps": 25.0,
+        "scheme": "equal",
+        "mean_net_return": 0.016783142601,
+        "sharpe_net": 1.222942044406
+      },
+      {
+        "cost_bps": 25.0,
+        "scheme": "inv_vol",
+        "mean_net_return": 0.016239073062,
+        "sharpe_net": 1.239044733176
+      },
+      {
+        "cost_bps": 25.0,
+        "scheme": "min_var",
+        "mean_net_return": 0.017334004802,
+        "sharpe_net": 1.346508348105
+      },
+      {
+        "cost_bps": 50.0,
+        "scheme": "equal",
+        "mean_net_return": 0.016700021577,
+        "sharpe_net": 1.217003624752
+      },
+      {
+        "cost_bps": 50.0,
+        "scheme": "inv_vol",
+        "mean_net_return": 0.016112659061,
+        "sharpe_net": 1.229500099221
+      },
+      {
+        "cost_bps": 50.0,
+        "scheme": "min_var",
+        "mean_net_return": 0.016871438076,
+        "sharpe_net": 1.312061393384
+      },
+      {
+        "cost_bps": 75.0,
+        "scheme": "equal",
+        "mean_net_return": 0.016616900552,
+        "sharpe_net": 1.211025387609
+      },
+      {
+        "cost_bps": 75.0,
+        "scheme": "inv_vol",
+        "mean_net_return": 0.015986245059,
+        "sharpe_net": 1.219902879819
+      },
+      {
+        "cost_bps": 75.0,
+        "scheme": "min_var",
+        "mean_net_return": 0.016408871349,
+        "sharpe_net": 1.277056797536
+      },
+      {
+        "cost_bps": 100.0,
+        "scheme": "equal",
+        "mean_net_return": 0.016533779528,
+        "sharpe_net": 1.205007890192
+      },
+      {
+        "cost_bps": 100.0,
+        "scheme": "inv_vol",
+        "mean_net_return": 0.015859831057,
+        "sharpe_net": 1.210254266651
+      },
+      {
+        "cost_bps": 100.0,
+        "scheme": "min_var",
+        "mean_net_return": 0.015946304623,
+        "sharpe_net": 1.24153165688
+      }
+    ],
+    "mean_net_return_slope_per_bps": {
+      "equal": -3.324841e-06,
+      "inv_vol": -5.05656e-06,
+      "min_var": -1.8502669e-05
+    },
+    "ordering_at_grid_points": {
+      "0": "min_var > inv_vol > equal",
+      "10": "min_var > inv_vol > equal",
+      "25": "min_var > inv_vol > equal",
+      "50": "min_var > inv_vol > equal",
+      "75": "min_var > inv_vol > equal",
+      "100": "min_var > inv_vol > equal"
+    },
+    "ordering_crossings": [],
+    "any_ordering_crossing": false,
+    "reading_rule": "report whether any pairwise ordering flips anywhere on the grid (registered decision rule RQ3); a monotone no-crossing result is a finding, not a failure"
+  },
+  "window_stability": {
+    "n_windows": 3,
+    "window_months": 31,
+    "label": "EXPLORATORY (registered): 3 windows \u2014 underpowered by construction; descriptive only",
+    "statistic": "annualized monthly Sharpe per contiguous non-overlapping window; Kendall tau between adjacent-window rankings over the 3 distinct schemes (max_sharpe structurally = min_var, excluded from ranks)",
+    "window_sharpes": [
+      {
+        "equal": 1.516916,
+        "inv_vol": 1.61311,
+        "min_var": 1.887642,
+        "max_sharpe": 1.887642
+      },
+      {
+        "equal": 0.81351,
+        "inv_vol": 0.749276,
+        "min_var": 1.001294,
+        "max_sharpe": 1.001294
+      },
+      {
+        "equal": 1.470735,
+        "inv_vol": 1.550449,
+        "min_var": 1.325066,
+        "max_sharpe": 1.325066
+      }
+    ],
+    "window_rankings": {
+      "1": {
+        "ranking": [
+          "min_var",
+          "inv_vol",
+          "equal"
+        ]
+      },
+      "2": {
+        "ranking": [
+          "min_var",
+          "equal",
+          "inv_vol"
+        ]
+      },
+      "3": {
+        "ranking": [
+          "inv_vol",
+          "equal",
+          "min_var"
+        ]
+      }
+    },
+    "adjacent_kendall_tau": [
+      {
+        "windows": [
+          1,
+          2
+        ],
+        "tau": 0.333333,
+        "degenerate": false
+      },
+      {
+        "windows": [
+          2,
+          3
+        ],
+        "tau": -1.0,
+        "degenerate": false
+      }
+    ],
+    "mean_adjacent_kendall_tau": -0.333334,
+    "rank1_counts": {
+      "equal": 0,
+      "inv_vol": 1,
+      "min_var": 2
+    },
+    "structural_exclusion": {
+      "excluded_pair": [
+        "min_var",
+        "max_sharpe"
+      ],
+      "reason": "max_sharpe fell back to min-variance in 100% of folds (fallback_share = 1.0); its OOS net series is bitwise identical to min_var's by construction, so a zero pairwise difference there is structural, not a finding",
+      "verified_bitwise_identical": true,
+      "distinct_schemes_tested": [
+        "equal",
+        "inv_vol",
+        "min_var"
+      ],
+      "n_pairs_tested": 3
+    }
+  }
+}
