@@ -535,7 +535,7 @@ If you use this work, please cite (see also [`CITATION.cff`](CITATION.cff)):
   author  = {Monavvari, Aydin},
   title   = {finscope-ai-research: a modular, reproducible financial-research workbench with an evidence-first reporting layer},
   year    = {2026},
-  version = {1.0.0},
+  version = {1.1.0},
   url     = {https://github.com/aydinmonavvari/finscope-ai-research}
 }
 ```

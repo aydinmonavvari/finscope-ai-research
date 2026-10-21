@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "finscope-ai-research"
-version = "1.0.0"
+version = "1.1.0"
 description = "Finscope: a modular, reproducible financial-research workbench — ingestion, diagnostics, a forecasting study, portfolio construction, risk reporting and an evidence-first research brief (educational capstone; not investment advice)."
 readme = "README.md"
 requires-python = ">=3.11"

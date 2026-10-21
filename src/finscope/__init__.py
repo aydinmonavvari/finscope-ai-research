@@ -9,5 +9,5 @@ It is a research workbench for evaluating methods, NOT a trading system,
 NOT a market predictor, and NOT investment advice.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "Aydin Monavvari"
