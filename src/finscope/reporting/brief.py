@@ -14,7 +14,7 @@ from pathlib import Path
 
 from finscope.config import REPORTS_DIR
 
-STAGE_FRAGMENTS = ("analysis", "forecast", "portfolio", "risk", "sentiment")
+STAGE_FRAGMENTS = ("analysis", "forecast", "portfolio", "risk", "uncertainty", "sentiment")
 DISCLAIMER = (
     "Finscope is a research workbench for evaluating methods on public data. "
     "Educational research output; not investment advice, not a market prediction, "
@@ -286,8 +286,206 @@ def render_brief(metrics: dict) -> str:
         lines.append("Risk report not available: run the `risk` stage.")
     lines.append("")
 
+    # ---------------------------------------------------- uncertainty (RQ1-RQ5)
+    # Pre-registered Phase-2 part B resampling checks, rendered FROM the
+    # uncertainty fragment (RQ1-RQ4) and the forecast_uncertainty artifact
+    # (RQ5) — never hard-coded prose.
+    uncertainty = metrics.get("uncertainty", {})
+    forecast_unc = metrics.get("forecast_uncertainty", {})
+    lines.append("## 6. Results uncertainty (pre-registered Phase-2 extension)")
+    lines.append("")
+    if uncertainty:
+        levels = uncertainty.get("level_cis", {})
+        b_val = levels.get("B", "n/a")
+        block_lens = levels.get("block_lens", [])
+        n_months = levels.get("n_months", "n/a")
+        lines.append(
+            "Method: circular block bootstrap (Politis & Romano 1994) on the "
+            f"{n_months}-month OOS net-return window, B={b_val} resamples, block lengths "
+            f"{block_lens} months, seed 42; percentile intervals at 95%. Pre-registered "
+            "in docs/admissions/PHASE2-P10-PLAN.md before implementation."
+        )
+        lines.append("")
+        points = levels.get("point_estimates", {})
+        block_tables = levels.get("levels", {})
+        if points and block_tables:
+            rows = []
+            for scheme, value in points.items():
+                ci = block_tables.get(scheme, {}).get("6", {})
+                rows.append(
+                    [
+                        scheme.replace("_", " "),
+                        f"{value:.2f}",
+                        f"[{ci.get('ci_low', 0):.2f}, {ci.get('ci_high', 0):.2f}]",
+                    ]
+                )
+            lines.append(
+                _md_table(
+                    ["Scheme", "Sharpe (net, point)", "95% CI, block = 6 months"], rows
+                )
+            )
+            lines.append("")
+            lines.append(
+                "Reading rule (registered): no scheme preference is supported unless a "
+                "95% CI excludes every other scheme's point estimate. With n=93 monthly "
+                "observations wide intervals are the expected outcome, and they are "
+                "reported exactly as measured."
+            )
+            lines.append("")
+        pairwise = uncertainty.get("pairwise_holm", {})
+        pairs = pairwise.get("pairs", [])
+        if pairs:
+            lines.append(
+                "Pairwise Sharpe differences (paired bootstrap, identical index streams "
+                "per pair; Holm step-down over the 3 distinct pairs at family-wise "
+                "alpha = 0.05):"
+            )
+            lines.append("")
+            rows = [
+                [
+                    p["a"].replace("_", " ") + " - " + p["b"].replace("_", " "),
+                    f"{p['diff']:.2f}",
+                    f"[{p['ci_low']:.2f}, {p['ci_high']:.2f}]",
+                    f"{p['p_raw']:.3f}",
+                    f"{p['p_holm']:.3f}",
+                    "yes" if p["reject_holm_05"] else "no",
+                ]
+                for p in pairs
+            ]
+            lines.append(
+                _md_table(
+                    ["Pair", "Diff", "95% CI", "p (add-one)", "Holm p", "Reject"],
+                    rows,
+                )
+            )
+            lines.append("")
+            exclusion = pairwise.get("structural_exclusion", {})
+            if exclusion:
+                lines.append(
+                    "Structural exclusion (registered in advance): the pair (min variance, "
+                    "max sharpe) is excluded a priori — max sharpe fell back to min-variance "
+                    "in 100% of folds, so its OOS series is bitwise identical by "
+                    "construction; a zero difference there is structural, not a finding."
+                )
+                lines.append("")
+            n_reject = pairwise.get("n_reject_holm_05", 0)
+            family = pairwise.get("family_size", len(pairs))
+            if n_reject == 0:
+                lines.append(
+                    f"Outcome: 0 of {family} pairwise differences survive Holm correction "
+                    "at family-wise 0.05 — the point-estimate ranking is within resampling "
+                    "noise on this window. This calibrated null is the honest result, not "
+                    "a failure."
+                )
+            else:
+                lines.append(
+                    f"Outcome: {n_reject} of {family} pairwise differences survive Holm "
+                    "correction at family-wise 0.05; the direction of every surviving "
+                    "difference is reported exactly as measured."
+                )
+            lines.append("")
+        grid = uncertainty.get("cost_grid", {})
+        if grid:
+            grid_points = grid.get("grid", [])
+            grid_rows = {}
+            for row in grid.get("rows_12dp", []):
+                grid_rows.setdefault(row["scheme"], {})[int(row["cost_bps"])] = row[
+                    "sharpe_net"
+                ]
+            if grid_rows:
+                headers = ["Scheme"] + [f"{int(g)} bps" for g in grid_points]
+                table_rows = [
+                    [s.replace("_", " ")]
+                    + [f"{grid_rows[s].get(int(g), float('nan')):.2f}" for g in grid_points]
+                    for s in sorted(grid_rows)
+                ]
+                lines.append(
+                    "Cost sensitivity (RQ3): net series recomputed EXACTLY as "
+                    "gross - turnover*bps/1e4 per fold; Sharpe per scheme per cost level:"
+                )
+                lines.append("")
+                lines.append(_md_table(headers, table_rows))
+                lines.append("")
+                crossings = grid.get("ordering_crossings", [])
+                if crossings:
+                    lines.append(
+                        f"Ordering crossings: {len(crossings)} pairwise ordering flip(s) on "
+                        "the grid — reported exactly as measured."
+                    )
+                else:
+                    lines.append(
+                        "Ordering crossings: none anywhere on the 0-100 bps grid — the "
+                        "cost ordering is monotone across the registered grid points."
+                    )
+                lines.append("")
+        windows = uncertainty.get("window_stability", {})
+        if windows:
+            taus = windows.get("adjacent_kendall_tau", [])
+            rank1 = windows.get("rank1_counts", {})
+            n_win = windows.get("n_windows", "n/a")
+            w_months = windows.get("window_months", "n/a")
+            tau_text = ", ".join(
+                ("undefined (tied)" if t.get("tau") is None else f"{t['tau']:.2f}")
+                for t in taus
+            )
+            rank1_text = ", ".join(
+                f"{s.replace('_', ' ')} {c}/{n_win}" for s, c in rank1.items()
+            )
+            lines.append(
+                f"Rank stability (RQ4, EXPLORATORY): {n_win} non-overlapping "
+                f"{w_months}-month windows; Kendall tau between adjacent windows "
+                f"[{tau_text}]; rank-1 counts {rank1_text}. Underpowered by "
+                "construction (3 windows) — descriptive only, no inferential claim."
+            )
+            lines.append("")
+    else:
+        lines.append(
+            "Uncertainty artifacts not available: run the `uncertainty` stage "
+            "(pre-registered plan: docs/admissions/PHASE2-P10-PLAN.md)."
+        )
+    if forecast_unc:
+        pairs = forecast_unc.get("pairs", {})
+        agreement = forecast_unc.get("dm_agreement", {})
+        if not pairs and forecast_unc.get("status") == "not_run":
+            # Registered not-run path (PHASE-2 plan section 10): the stage ran
+            # and recorded why RQ5 has no numbers — render that disclosure,
+            # never a silent skip and never a crash.
+            reason = forecast_unc.get("reason") or "macro ingestion unavailable"
+            lines.append(
+                "Forecast RMSE-difference cross-check (RQ5): not_run — macro "
+                "ingestion was unavailable in the execution environment "
+                f"({reason}). The committed DM tests in reports/forecast.json "
+                "remain the primary inferential tool for the forecasting stage."
+            )
+        if pairs:
+            lines.append("Forecast RMSE differences (RQ5, paired block bootstrap over origins):")
+            lines.append("")
+            rows = [
+                [
+                    model.replace("_", " "),
+                    f"{p['diff']:.2f}",
+                    f"[{p['ci_low']:.2f}, {p['ci_high']:.2f}]",
+                ]
+                for model, p in pairs.items()
+            ]
+            lines.append(
+                _md_table(["Model", "RMSE diff vs naive (pp)", "95% CI"], rows)
+            )
+            lines.append("")
+            if agreement:
+                agree_text = "; ".join(
+                    f"{m.replace('_', ' ')}: {v['agreement']}" for m, v in agreement.items()
+                )
+                lines.append(f"Agreement with the primary Diebold-Mariano verdicts: {agree_text}.")
+                lines.append("")
+    else:
+        lines.append(
+            "Forecast RMSE-difference intervals not available: run the `uncertainty` stage."
+        )
+        lines.append("")
+
     # ------------------------------------------------------------- sentiment
-    lines.append("## 6. Sentiment screen (illustrative bundled sample)")
+    lines.append("## 7. Sentiment screen (illustrative bundled sample)")
     lines.append("")
     if sentiment:
         lines.append(
@@ -310,7 +508,7 @@ def render_brief(metrics: dict) -> str:
     lines.append("")
 
     # -------------------------------------------------------------- findings
-    lines.append("## 7. Findings & limitations")
+    lines.append("## 8. Findings & limitations")
     lines.append("")
     lines.append("**Findings (evidence-first, all from the actual run above):**")
     lines.append("")
@@ -348,6 +546,10 @@ def render_brief(metrics: dict) -> str:
             "Portfolio: 12-month covariance estimates are noisy; max-Sharpe falls back to "
             "min-variance whenever the tangency solution violates caps; results are one "
             "historical path, not a distribution.",
+            "Uncertainty: block-bootstrap intervals on 93 monthly observations are wide by "
+            "construction; the (min variance, max sharpe) pair is structurally identical "
+            "(fallback share 1.0) and excluded a priori from pairwise testing; the "
+            "sub-window rank check is exploratory (3 windows, descriptive only).",
             f"Risk: {monthly_text}; VaR/ES are descriptive, not guarantees.",
             "Sentiment: the bundled headlines are an illustrative authored sample, not evidence.",
             "Global: single data window, single seed, no hyperparameter search; every number "

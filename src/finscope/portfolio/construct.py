@@ -251,6 +251,8 @@ def walk_forward_backtest(
     net_rows: list[tuple[pd.Timestamp, float]] = []
     gross_rows: list[tuple[pd.Timestamp, float]] = []
     turnover: list[float] = []
+    charge_dates: list[pd.Timestamp] = []
+    charges: list[float] = []
     weight_snapshots: list[np.ndarray] = []
     weights = np.zeros(monthly_returns.shape[1])
     for train_start, train_end, hold_start, hold_end in folds:
@@ -258,6 +260,8 @@ def walk_forward_backtest(
         target = np.asarray(scheme_fn(window), dtype=float)
         charge = rebalance_cost(weights, target, cost_bps)
         turnover.append(float(np.abs(target - weights).sum()))
+        charge_dates.append(monthly_returns.index[hold_start])
+        charges.append(charge)
         weights = target.copy()
         weight_snapshots.append(weights.copy())
         for i in range(hold_start, hold_end):
@@ -274,6 +278,16 @@ def walk_forward_backtest(
         "net": net_series,
         "gross": gross_series,
         "turnover": turnover,
+        # PHASE-2 part B (registered, disclosed): the dated per-fold charge
+        # series. ``charges`` is the cost deducted at each fold-start month in
+        # return units at this run's ``cost_bps``; ``fold_turnover`` is the
+        # one-way turnover it scales with (charge = turnover * bps / 1e4), so
+        # net(bps) = gross - turnover * bps / 1e4 is recomputable EXACTLY at
+        # any cost level without re-running the backtest.
+        "charges": pd.Series(dict(zip(charge_dates, charges, strict=True))).sort_index(),
+        "fold_turnover": pd.Series(
+            dict(zip(charge_dates, turnover, strict=True))
+        ).sort_index(),
         "schedule": folds,
         "weights": weight_snapshots,
         "total_cost_return": float(sum(t * cost_bps / 1e4 for t in turnover)),

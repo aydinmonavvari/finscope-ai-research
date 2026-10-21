@@ -21,6 +21,12 @@ TICKERS = ["SPY", "AAPL", "MSFT", "JPM", "XOM", "PG", "AMZN"]
 PRICE_START = "2018-01-01"
 PRICES_CACHE = RAW_DIR / "prices_daily.csv"
 
+# Vintage pin (PHASE-2 part B, docs/admissions/PHASE2-P10-PLAN.md §4): every
+# ingestion path truncates at this as-of date so a re-run reproduces the
+# v1.0.0 vintage instead of silently extending the panel. This is a
+# reproducibility fix, not a methodology change.
+AS_OF = "2026-10-08"
+
 # ---------------------------------------------------------------- macro (FRED)
 # Public CSV endpoint; no API key required. Verified reachable; cache-first.
 FRED_BASE_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"

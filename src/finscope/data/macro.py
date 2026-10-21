@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from finscope.config import FRED_BASE_URL, FRED_SERIES, MACRO_START, RAW_DIR
+from finscope.config import AS_OF, FRED_BASE_URL, FRED_SERIES, MACRO_START, RAW_DIR
 
 
 def _cache_path(series_id: str) -> Path:
@@ -39,6 +39,18 @@ def load_fred_series(
                 f"exists at {cache_path}. Run once with network access."
             ) from exc
         payload = payload.rename(columns={payload.columns[0]: "date"})
+        if series_id not in payload.columns:
+            # Never cache a malformed response. The FRED CSV endpoint is
+            # documented (PHASE-2 part B validation report) to serve an HTML
+            # bot-challenge page with HTTP 200 when the client is blocked; that
+            # page can parse as a junk frame whose first column is renamed to
+            # "date". Caching it would silently poison every later offline run.
+            raise RuntimeError(
+                f"FRED endpoint returned a malformed payload for {series_id} "
+                f"(missing column {series_id!r}); nothing was cached. The "
+                f"endpoint may be serving an HTML block page — retry later or "
+                f"populate {cache_path} from a trusted session."
+            )
         payload["date"] = pd.to_datetime(payload["date"])
         frame = payload.set_index("date").sort_index()
         cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -47,7 +59,10 @@ def load_fred_series(
         raise ValueError(f"FRED payload for {series_id} lacks column {series_id}")
     series = pd.to_numeric(frame[series_id], errors="coerce").dropna()
     series.name = FRED_SERIES.get(series_id, series_id)
-    return series.loc[start:]
+    # Registered AS_OF vintage pin (PHASE-2 plan §4): truncate at the as-of
+    # date so a re-run cannot silently extend the panel past 2026-10-08,
+    # regardless of what the endpoint serves on the day of the re-run.
+    return series.loc[start:AS_OF]
 
 
 def load_macro_monthly(refresh: bool = False) -> pd.DataFrame:

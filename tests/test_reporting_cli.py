@@ -16,7 +16,10 @@ def test_brief_includes_mandatory_markers():
     text = render_brief(metrics)
     assert "Findings & limitations" in text
     assert "not investment advice" in text
-    assert "## 7." in text
+    assert "## 8." in text
+    # the pre-registered uncertainty section is mandatory in the brief structure
+    assert "## 6. Results uncertainty" in text
+    assert "run the `uncertainty` stage" in text
 
 
 def test_brief_limitations_use_measured_scope_numbers():
@@ -89,7 +92,16 @@ def test_cli_help_smoke():
         [sys.executable, str(script), "--help"], capture_output=True, text=True
     )
     assert result.returncode == 0
-    for stage in ("ingest", "analyze", "forecast", "optimize", "risk", "report", "all"):
+    for stage in (
+        "ingest",
+        "analyze",
+        "forecast",
+        "optimize",
+        "risk",
+        "uncertainty",
+        "report",
+        "all",
+    ):
         assert stage in result.stdout
 
 

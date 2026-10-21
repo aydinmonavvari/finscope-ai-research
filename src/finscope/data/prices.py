@@ -10,7 +10,12 @@ from __future__ import annotations
 
 import pandas as pd
 
-from finscope.config import PRICE_START, PRICES_CACHE, TICKERS
+from finscope.config import AS_OF, PRICE_START, PRICES_CACHE, TICKERS
+
+# yfinance's ``end`` parameter is EXCLUSIVE: to include the AS_OF bar
+# (2026-10-08, the registered vintage pin of PHASE-2 part B plan §4) the
+# download window must end one calendar day later (2026-10-09).
+FETCH_END_EXCLUSIVE = str(pd.Timestamp(AS_OF) + pd.Timedelta(days=1))[:10]
 
 
 def _clean_frame(frame: pd.DataFrame) -> pd.DataFrame:
@@ -24,13 +29,21 @@ def _clean_frame(frame: pd.DataFrame) -> pd.DataFrame:
     return frame
 
 
-def fetch_prices(tickers: list[str], start: str = PRICE_START) -> pd.DataFrame:
-    """Download daily adjusted close prices (wide frame, one column per ticker)."""
+def fetch_prices(
+    tickers: list[str], start: str = PRICE_START, end: str = FETCH_END_EXCLUSIVE
+) -> pd.DataFrame:
+    """Download daily adjusted close prices (wide frame, one column per ticker).
+
+    The download window is pinned at the registered ``AS_OF`` vintage: the
+    ``end`` passed to yfinance is EXCLUSIVE, so ``end = AS_OF + 1 day`` keeps
+    every bar through 2026-10-08 inclusive and nothing later.
+    """
     import yfinance as yf  # lazy import: keeps CLI --help and tests import-light
 
     raw = yf.download(
         tickers=list(tickers),
         start=start,
+        end=end,
         auto_adjust=True,
         progress=False,
         threads=False,
@@ -54,6 +67,11 @@ def load_prices(
 ) -> pd.DataFrame:
     """Cache-first daily price loader (offline-safe reads).
 
+    Every returned frame is truncated at the registered ``AS_OF`` vintage
+    (2026-10-08): downloads already end there via the exclusive yfinance
+    ``end``, and the same truncation is applied to cached reads so a stale
+    over-long cache can never silently extend the panel either.
+
     Raises a clear error if the cache is absent and the network is unusable.
     """
     tickers = list(tickers if tickers is not None else TICKERS)
@@ -62,7 +80,7 @@ def load_prices(
         missing = [t for t in tickers if t not in frame.columns]
         if missing:
             raise ValueError(f"cache {cache_path} is missing columns: {missing}")
-        return _clean_frame(frame[tickers])
+        return _pin_vintage(_clean_frame(frame[tickers]))
     try:
         frame = fetch_prices(tickers, start)
     except Exception as exc:
@@ -72,7 +90,12 @@ def load_prices(
         ) from exc
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(cache_path, index_label="date")
-    return frame
+    return _pin_vintage(frame)
+
+
+def _pin_vintage(frame: pd.DataFrame) -> pd.DataFrame:
+    """Truncate a dated frame at the registered AS_OF date (inclusive)."""
+    return frame.loc[:AS_OF]
 
 
 def monthly_close(prices: pd.DataFrame) -> pd.DataFrame:

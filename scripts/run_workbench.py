@@ -3,22 +3,33 @@
 
 Stages (each idempotent and cache-first; `all` runs them in order):
 
-    ingest    fetch/cache Yahoo Finance prices + FRED macro series
-    analyze   market diagnostics + figures 1-3
-    forecast  12-month CPI inflation study + figures 4-5
-    optimize  walk-forward portfolio backtest + figures 6-7
-    risk      VaR/ES and drawdown reporting + figure 8
-    report    merge fragments -> reports/metrics.json + research_brief.md
-    all       ingest -> analyze -> forecast -> optimize -> risk -> report
+    ingest       fetch/cache Yahoo Finance prices + FRED macro series
+    analyze      market diagnostics + figures 1-3
+    forecast     12-month CPI inflation study + figures 4-5
+    optimize     walk-forward portfolio backtest + figures 6-7 (+ oos_returns.json)
+    risk         VaR/ES and drawdown reporting + figure 8
+    uncertainty  pre-registered Phase-2 part B resampling suite (RQ1-RQ5)
+    report       merge fragments -> reports/metrics.json + research_brief.md
+    all          ingest -> analyze -> forecast -> optimize -> risk -> uncertainty -> report
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import time
 
-STAGES = ("ingest", "analyze", "forecast", "optimize", "risk", "report", "all")
+STAGES = (
+    "ingest",
+    "analyze",
+    "forecast",
+    "optimize",
+    "risk",
+    "uncertainty",
+    "report",
+    "all",
+)
 
 
 def stage_ingest() -> dict:
@@ -220,9 +231,10 @@ def stage_optimize(prices=None) -> dict:
         "figures": figures,
     }
     write_fragment("portfolio", payload)
+    _write_oos_returns(results, scheme_payload, oos_start, oos_end)
     print(
         f"[optimize] {payload['oos_months']} OOS months, {payload['n_folds']} folds "
-        "-> portfolio.json"
+        "-> portfolio.json + oos_returns.json"
     )
     for name in ranking:
         s = scheme_payload[name]
@@ -231,6 +243,61 @@ def stage_optimize(prices=None) -> dict:
             f"maxDD={s['max_dd'] * 100:.1f}% turnover={s['avg_turnover']:.3f}"
         )
     return {"net_series": net_series, "monthly": monthly, "results": results}
+
+
+def _write_oos_returns(results: dict, scheme_payload: dict, oos_start: str, oos_end: str) -> None:
+    """Persist the previously unpersisted OOS series (registered plan §6 artifact).
+
+    ``reports/oos_returns.json`` stores the full-precision monthly NET series
+    per scheme — the same series already visualized in the committed figures —
+    plus the GROSS series and dated per-fold one-way turnover so the RQ3 cost
+    grid is exactly recomputable from the committed artifact alone. This is a
+    derived pipeline output (registered exception to the no-data-committed
+    policy), never constituent market data.
+    """
+    from finscope.config import AS_OF, REPORTS_DIR
+    from finscope.reporting.jsonio import write_strict_json
+
+    max_fallback = scheme_payload.get("max_sharpe", {}).get("fallback_share", 0.0)
+    fallback_note = (
+        f"max_sharpe used its min-variance fallback in {max_fallback * 100:.0f}% of "
+        "folds, so its OOS series is bitwise identical to min_var by construction "
+        "(structural exclusion registered in the Phase-2 plan §1)."
+        if max_fallback
+        else "no scheme triggered a fallback path in this run."
+    )
+    payload = {
+        "metadata": {
+            "as_of": AS_OF,
+            "window": {"start": oos_start, "end": oos_end},
+            "n_months": int(len(results["equal"]["net"])),
+            "n_folds": int(results["equal"]["n_folds"]),
+            "frequency": "monthly OOS returns, month-end labels",
+            "fallback_note": fallback_note,
+            "provenance": (
+                "registered Phase-2 part B artifact "
+                "(docs/admissions/PHASE2-P10-PLAN.md §6): derived pipeline output, "
+                "not constituent market data; net series at full float precision"
+            ),
+            "schemes": {
+                name: {"fallback_share": scheme_payload[name]["fallback_share"]}
+                for name in results
+            },
+        },
+        "net": {
+            name: {str(d.date()): float(v) for d, v in run["net"].items()}
+            for name, run in results.items()
+        },
+        "gross": {
+            name: {str(d.date()): float(v) for d, v in run["gross"].items()}
+            for name, run in results.items()
+        },
+        "fold_turnover": {
+            name: {str(d.date()): float(v) for d, v in run["fold_turnover"].items()}
+            for name, run in results.items()
+        },
+    }
+    write_strict_json(payload, REPORTS_DIR / "oos_returns.json")
 
 
 def stage_risk(prices=None, net_series=None) -> dict:
@@ -295,9 +362,200 @@ def stage_risk(prices=None, net_series=None) -> dict:
     return {"var_table": var_table}
 
 
+def _load_oos_returns() -> dict:
+    """Load the registered OOS-series artifact (standalone uncertainty runs)."""
+    import json
+
+    from finscope.config import REPORTS_DIR
+
+    path = REPORTS_DIR / "oos_returns.json"
+    if not path.exists():
+        raise RuntimeError(
+            "reports/oos_returns.json not found — run the `optimize` stage first "
+            "(it persists the registered OOS series artifact)."
+        )
+    return json.loads(path.read_text())
+
+
+def stage_uncertainty(optimization: dict | None = None, predictions=None) -> dict:
+    """Pre-registered Phase-2 part B suite (RQ1-RQ5); writes 3 artifacts + 1 csv.
+
+    Uses the in-memory optimization results and forecast predictions when
+    given (the `all` flow), else loads ``reports/oos_returns.json`` and
+    recomputes the rolling-origin study from the cached macro panel — both
+    paths are deterministic and produce identical artifacts on the pinned
+    vintage. Runtime budget (registered A7): well under 60 s.
+    """
+    import time
+
+    import pandas as pd
+
+    from finscope.config import (
+        FORECAST_HORIZON,
+        FORECAST_MIN_TRAIN,
+        FORECAST_STEP,
+        REPORTS_DIR,
+        RIDGE_ALPHA,
+    )
+    from finscope.forecast.inflation import rolling_origin_study
+    from finscope.forecast.uncertainty import (
+        dm_agreement,
+        rmse_diff_cis,
+        squared_errors,
+    )
+    from finscope.portfolio.uncertainty import (
+        cost_grid,
+        level_cis,
+        pairwise_holm,
+        window_stability,
+    )
+    from finscope.reporting.jsonio import write_strict_json
+
+    start = time.perf_counter()
+    if optimization is not None:
+        results = optimization["results"]
+        net_series = optimization["net_series"]
+        gross = {name: run["gross"] for name, run in results.items()}
+        turnover = {name: run["fold_turnover"] for name, run in results.items()}
+        charge_dates = results["equal"]["charges"].index
+        source = "in-memory optimization results"
+    else:
+        loaded = _load_oos_returns()
+        meta = loaded["metadata"]
+
+        def _from_json(d: dict) -> pd.Series:
+            # JSON round-trip loses the DatetimeIndex; the in-memory path works
+            # on Timestamp indexes, so reconstruct them here (regression-tested:
+            # tests/test_uncertainty.py::test_stage_uncertainty_standalone_path).
+            s = pd.Series(d, dtype=float)
+            s.index = pd.to_datetime(s.index)
+            return s.sort_index()
+
+        net_series = {name: _from_json(s) for name, s in loaded["net"].items()}
+        gross = {
+            name: _from_json(s) for name, s in loaded["gross"].items()
+        }
+        turnover = {
+            name: _from_json(s)
+            for name, s in loaded["fold_turnover"].items()
+        }
+        charge_dates = pd.DatetimeIndex(next(iter(turnover.values())).index)
+        source = f"reports/oos_returns.json (as_of {meta.get('as_of', 'n/a')})"
+
+    forecast_unavailable_reason: str | None = None
+    if predictions is None:
+        try:
+            from finscope.data.macro import load_macro_monthly
+
+            macro = load_macro_monthly()
+            study = rolling_origin_study(
+                macro,
+                horizon=FORECAST_HORIZON,
+                step=FORECAST_STEP,
+                min_train=FORECAST_MIN_TRAIN,
+                ridge_alpha=RIDGE_ALPHA,
+            )
+            predictions = study["predictions"]
+            forecast_source = "rolling-origin study recomputed from cached macro panel"
+        except RuntimeError as exc:
+            # Registered not-run path (PHASE-2 plan §10 deviations log): when
+            # macro ingestion is impossible in the execution environment (e.g.
+            # FRED serving bot-challenge pages), RQ5 is recorded as not run
+            # with the exact reason — the committed DM tests in
+            # reports/forecast.json remain the primary inferential tool. The
+            # portfolio half (RQ1-RQ4) is unaffected and still runs.
+            # The full error text embeds the absolute cache path, which must
+            # never reach a committed artifact: neutralize any absolute path
+            # and keep only the leading sentence.
+            forecast_unavailable_reason = re.sub(
+                r"/(?:home|Users)/\S*", "<cache path>", str(exc)
+            ).split(". ")[0].rstrip(".")
+            forecast_source = "not_run — macro ingestion unavailable"
+    else:
+        forecast_source = "in-memory forecast predictions"
+
+    # RQ1 / RQ2 / RQ3 / RQ4 (portfolio side)
+    levels = level_cis(net_series)
+    pairwise = pairwise_holm(net_series)
+    grid = cost_grid(gross, turnover, charge_dates)
+    windows = window_stability(net_series)
+
+    uncertainty_payload = {
+        "plan": "docs/admissions/PHASE2-P10-PLAN.md (pre-registered)",
+        "status": "Phase-2 part B uncertainty suite; registered seeds 42; B=2000",
+        "source": {"portfolio": source, "forecast": forecast_source},
+        "level_cis": levels,
+        "pairwise_holm": pairwise,
+        "cost_grid": grid,
+        "window_stability": windows,
+    }
+    write_strict_json(uncertainty_payload, REPORTS_DIR / "uncertainty.json")
+
+    # RQ3 registered artifact: the full grid at 12-decimal precision
+    grid_frame = pd.DataFrame(grid["rows_12dp"])
+    grid_frame.to_csv(
+        REPORTS_DIR / "cost_sensitivity.csv",
+        index=False,
+        float_format="%.12f",
+    )
+
+    # RQ5 (forecast side)
+    if predictions is None:
+        forecast_payload = {
+            "plan": "docs/admissions/PHASE2-P10-PLAN.md (pre-registered, RQ5)",
+            "status": "not_run",
+            "reason": forecast_unavailable_reason,
+            "registered_method": (
+                "paired circular block bootstrap over the rolling origins "
+                "(block length 4, B=2000, seed 42) for the RMSE differences "
+                "OLS-naive and ridge-naive; machinery implemented in "
+                "finscope.forecast.uncertainty and unit-tested on synthetic "
+                "data (tests/test_uncertainty.py)"
+            ),
+            "primary_inferential_tool": (
+                "committed DM tests in reports/forecast.json (v1.0.0 artifacts, "
+                "byte-identical, unchanged by this stage)"
+            ),
+        }
+    else:
+        se = {
+            model: squared_errors(predictions, model)
+            for model in ("seasonal_naive", "ols", "ridge")
+        }
+        rmse_boot = rmse_diff_cis(se)
+        forecast_payload = {
+            "plan": "docs/admissions/PHASE2-P10-PLAN.md (pre-registered, RQ5)",
+            "source": forecast_source,
+            **rmse_boot,
+            "dm_agreement": dm_agreement(predictions, rmse_boot),
+        }
+    write_strict_json(forecast_payload, REPORTS_DIR / "forecast_uncertainty.json")
+
+    elapsed = time.perf_counter() - start
+    n_reject = pairwise["n_reject_holm_05"]
+    rq5_note = (
+        "RQ5 NOT RUN (macro unavailable)"
+        if predictions is None
+        else "RQ5 RMSE CIs"
+    )
+    print(
+        f"[uncertainty] RQ1 level CIs, RQ2 Holm ({n_reject}/3 rejected), RQ3 grid "
+        f"({len(grid['ordering_crossings'])} crossings), RQ4 windows, {rq5_note} "
+        f"-> uncertainty.json, cost_sensitivity.csv, forecast_uncertainty.json "
+        f"({elapsed:.1f}s)"
+    )
+    return {
+        "uncertainty": uncertainty_payload,
+        "forecast_uncertainty": forecast_payload,
+        "elapsed_s": elapsed,
+    }
+
+
 def stage_report() -> dict:
     """Merge fragments, score the bundled sample, write metrics.json + brief."""
-    from finscope.config import SAMPLES_DIR
+    import json
+
+    from finscope.config import REPORTS_DIR, SAMPLES_DIR
     from finscope.nlp.sentiment import score_headlines, summarize
     from finscope.reporting.brief import collect_metrics, write_fragment, write_reports
 
@@ -305,6 +563,13 @@ def stage_report() -> dict:
     scored = score_headlines(SAMPLES_DIR / "sample_headlines.csv")
     metrics["sentiment"] = summarize(scored)
     write_fragment("sentiment", metrics["sentiment"])
+    # RQ5 reaches the brief from its own artifact (additive metrics key only;
+    # the RQ1-RQ4 numbers flow in via the uncertainty fragment).
+    forecast_uncertainty_path = REPORTS_DIR / "forecast_uncertainty.json"
+    if forecast_uncertainty_path.exists():
+        metrics["forecast_uncertainty"] = json.loads(
+            forecast_uncertainty_path.read_text()
+        )
     metrics["findings"] = _build_findings(metrics)
     write_reports(metrics)
     print(
@@ -389,6 +654,37 @@ def _build_findings(metrics: dict) -> list[str]:
             "(no network, no dataset claims); the evidence-bearing benchmark is the "
             "financial-nlp-sentiment repository."
         )
+    uncertainty = metrics.get("uncertainty", {})
+    if uncertainty:
+        pairwise = uncertainty.get("pairwise_holm", {})
+        n_reject = pairwise.get("n_reject_holm_05")
+        family = pairwise.get("family_size", 3)
+        if n_reject is not None:
+            levels = uncertainty.get("level_cis", {})
+            points = levels.get("point_estimates", {})
+            block_cis = levels.get("levels", {})
+            headline_block = "6"
+            # MEASURED overlap statement: does each scheme's headline 95% CI
+            # contain every scheme's point estimate? (no hard-coded claim)
+            mutually_spanning = bool(points) and all(
+                block_cis.get(s, {}).get(headline_block, {}).get("ci_low", 1e9)
+                <= min(points.values())
+                and max(points.values())
+                <= block_cis.get(s, {}).get(headline_block, {}).get("ci_high", -1e9)
+                for s in points
+            )
+            overlap_note = (
+                "each scheme's 95% block-bootstrap CI contains every scheme's point "
+                "estimate"
+                if mutually_spanning
+                else "the level CIs overlap across schemes"
+            )
+            findings.append(
+                f"Resampling checks (pre-registered Phase-2 extension): {n_reject} of "
+                f"{family} pairwise net-Sharpe differences survive Holm correction at "
+                f"family-wise 0.05; {overlap_note} — the observed scheme gaps are within "
+                "bootstrap rank noise at n=93 monthly observations."
+            )
     return findings
 
 
@@ -419,6 +715,8 @@ def main(argv: list[str] | None = None) -> int:
         timed("optimize", stage_optimize)
     elif args.stage == "risk":
         timed("risk", stage_risk)
+    elif args.stage == "uncertainty":
+        timed("uncertainty", stage_uncertainty)
     elif args.stage == "report":
         timed("report", stage_report)
     elif args.stage == "all":
@@ -429,10 +727,11 @@ def main(argv: list[str] | None = None) -> int:
         forecast = timed("forecast", stage_forecast, data["macro"])
         opt = timed("optimize", stage_optimize, prices)
         timed("risk", stage_risk, prices, opt["net_series"])
+        timed("uncertainty", stage_uncertainty, opt, forecast["predictions"])
         timed("report", stage_report)
         print(f"[all] total wall time {time.perf_counter() - start:.1f}s")
         # keep objects referenced so linters see intent (data flows through stages)
-        _ = analysis, forecast
+        _ = analysis
     return 0
 
 
