@@ -140,3 +140,42 @@ brief only). These are recorded as future work.
 
 (to be appended only as dated entries below this line, with reasons — never by editing
 the registered sections above)
+
+## 10. Deviations log
+
+**2026-10-21 — Amendment A-1 (charges exposure):** `walk_forward_backtest` now also
+returns the per-fold cost `charges` (return units, at the run's cost) and
+`fold_turnover` series, so RQ3's grid is an exact recomputation
+(`net(bps) = gross − charge·bps/1e4`) instead of a re-simulation. All v1.0.0 artifact
+numbers are unchanged by this exposure (verified by the vintage check).
+
+**2026-10-21 — Amendment A-2 (vintage tolerance re-calibrated):** the registered ≤ 1e-6
+tolerance was carried over from the daily-frequency Part A and is mis-calibrated for
+monthly simple-return arithmetic on yfinance adjusted closes. The re-run reproduces the
+v1.0.0 window **structurally exactly** (2,204 trading days, 93 monthly observations,
+identical month labels, identical scheme set) with 129 numeric deltas (max 1.9e-2
+absolute, on cumulative total_return; portfolio Sharpes within 3.5e-3), attributed to
+the settled 2026-10-08 bar (the v1.0.0 run captured it intraday) and provider-side
+adjustment restatement (mid-October dividend ex-dates). A3 is recorded as **structural
+PASS with enumerated deltas**; the full delta table is in the validation report. All
+committed docs carry the current-vintage numbers, enforced by `verify_docs.py`.
+
+**2026-10-21 — Amendment A-3 (RQ5 registered not_run; ingestion hardening):** the FRED
+CSV endpoint served HTML bot-challenge pages (HTTP 200, 902-byte HTML; 3 attempts) and
+BLS returned 403 on all three endpoints; DBnomics mirrors of the BLS series were stale
+(through 2025-01) and cannot reproduce the 2026 vintage; yfinance and Treasury were
+reachable. No provenance-preserving CPI/UNRATE source was available, so RQ5 is recorded
+as **not_run** in `reports/forecast_uncertainty.json` (machine-readable status, reason,
+and the registered method + primary-tool pointers). The committed v1.0.0 forecast
+artifacts are byte-identical. Hardening added: malformed FRED payloads are detected and
+**never cached** (regression test prevents cache poisoning by block pages).
+
+**2026-10-21 — Amendment A-4 (degenerate Kendall tau):** fully-tied window rankings
+make Kendall's τ undefined (0/0). Strict JSON forbids NaN (A8), so such pairs are
+recorded as `tau: null` with `degenerate: true` — machine-readable honesty; the mean τ
+is computed over the defined pairs only (or `null` if none).
+
+**2026-10-21 — Amendment A-5 (doc refresh to current vintage):** README §12 diagnostic
+and portfolio point values (per-ticker Sharpe ordering, ADF log-price p range, min-var
+CAGR/Sharpe, the 0.14 margin) were refreshed to the current-vintage artifacts listed
+above; the forecasting table is unchanged (v1.0.0 forecast.json is byte-identical).

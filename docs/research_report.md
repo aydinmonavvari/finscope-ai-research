@@ -210,10 +210,55 @@ Daily SPY reference (n = 2,203): VaR95 1.76%, ES95 2.87%, VaR99 3.32%, ES99 4.93
 Historical tail magnitudes exceed Gaussian estimates at the same levels, as fat tails
 predict (fig08).
 
+## Results uncertainty (Phase 2, part B — pre-registered)
+
+The Phase-2 part B suite (`docs/admissions/PHASE2-P10-PLAN.md`, committed before
+implementation) subjects the portfolio table to the same uncertainty discipline as the
+sibling study: circular block bootstrap on the 93 monthly OOS net returns (B = 2000,
+seed 42, blocks {3, 6, 12} months), paired bootstrap with Holm step-down for the three
+distinct pairwise Sharpe differences, an exact cost grid, and an exploratory sub-window
+rank analysis. Artifacts: `reports/uncertainty.json`, `reports/cost_sensitivity.csv`,
+`reports/oos_returns.json`.
+
+**RQ1 — per-scheme Sharpe 95% CIs (block 6):** equal 1.23 [0.64, 1.98]; inverse-vol
+1.24 [0.61, 2.02]; min-variance (= max-Sharpe) 1.37 [0.72, 2.12]. Every interval spans
+every other scheme's point estimate; with 93 monthly observations the data cannot
+statistically separate the schemes.
+
+**RQ2 — pairwise differences (Holm, family α = 0.05):** equal − inv-vol -0.02
+[-0.11, 0.08] (raw p 0.670, Holm 1.000); equal − min-var -0.14 [-0.39, 0.14] (raw p
+0.337, Holm 1.000); inv-vol − min-var -0.12 [-0.33, 0.12] (raw p 0.343, Holm 1.000).
+**0 of 3** differences survives multiplicity correction. The min-var/max-Sharpe pair is
+excluded a priori as structurally identical (fallback share 1.0), not as a finding.
+
+**RQ3 — cost grid {0, 10, 25, 50, 75, 100} bps/side (exact recomputation from stored
+per-fold turnover charges):** the scheme ordering never flips; equal 1.23 → 1.21 and
+min-variance 1.38 → 1.24 across the grid; the optimizer keeps its point-estimate lead at
+every cost level, consistent with its edge being variance reduction rather than anything
+cost-sensitive.
+
+**RQ4 — sub-window rank stability (3 × 31 months; EXPLORATORY, underpowered by
+construction):** adjacent-window Kendall τ 0.33 then -1.00 (mean -0.33); rank-1 counts:
+min-variance 2/3, inverse-vol 1/3, equal 0/3. The point-estimate ordering is not stable
+across sub-windows.
+
+**RQ5 — forecast-error bootstrap cross-check: not_run.** The macro re-fetch (FRED) was
+unreachable from the Phase-2 execution environment (HTML bot-challenge responses,
+documented with evidence in `docs/admissions/PHASE2-P10-VALIDATION-REPORT.md`). The
+registered not-run rule was applied: the machinery exists and is unit-tested on
+synthetic data, the committed v1.0.0 forecast artifacts are byte-identical, and the
+direction-aware DM tests remain the primary inferential tool for the forecasting stage.
+
+**What this section does NOT establish:** any statistically distinguishable superiority
+of any scheme; any out-of-sample forecasting skill; stability of the scheme ranking over
+time. The capstone's headline negative result (no model improves on the seasonal-naive
+benchmark) is unchanged — and the portfolio table now carries the same calibrated
+humility as its point estimates.
+
 ## Discussion
 
 1. **The negative forecasting result is the study's most useful output.** With three
-   origin-known features and modest training pools, nothing beats "inflation stays where
+   origin-known features and modest training pools, nothing improves on "inflation stays where
    it is" at a 12-month horizon — and the DM tests indicate the regressions were reliably
    *worse*, chasing level shifts through the 2021–2022 surge. Under the efficient-markets
    posture (Fama 1970) and the two-cultures humility of Breiman (2001), the correct

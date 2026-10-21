@@ -58,7 +58,7 @@ disciplined whole.
   equal weights), rolling-origin design, direction-aware significance tests, and cost-aware
   backtesting are the transferable core; the specific models are deliberately simple.
 - **For research integrity:** the capstone's headline finding is a *negative* result (no
-  forecasting model beats the seasonal-naive benchmark), reported with the same rigor as
+  forecasting model improves on the seasonal-naive benchmark), reported with the same rigor as
   the portfolio table — evidence-first reporting, stated assumptions, explicit limits.
 
 ## 5 · Methodology
@@ -103,6 +103,16 @@ Per module, in pipeline order:
    `reports/metrics.json` and renders `reports/research_brief.md` *from those numbers*,
    including a mandatory "Findings & limitations" section and the disclaimer. All paths
    in outputs are relative — no absolute sandbox paths leak into reports.
+9. **`portfolio/uncertainty.py` + `forecast/uncertainty.py` + `analytics/bootstrap.py` —
+   the pre-registered uncertainty suite (Phase 2, part B).** Circular block bootstrap
+   (B = 2000, seed 42, block lengths {3, 6, 12} months) for per-scheme Sharpe CIs,
+   paired bootstrap + Holm step-down for the 3 distinct pairwise Sharpe differences,
+   exact cost-grid recomputation from stored per-fold turnover charges, 3-window rank
+   stability (exploratory), and a paired-origin block bootstrap for forecast RMSE
+   differences. Pre-registered in
+   [`docs/admissions/PHASE2-P10-PLAN.md`](docs/admissions/PHASE2-P10-PLAN.md) before
+   implementation; artifacts strictly JSON (`allow_nan=False`); doc-artifact
+   consistency enforced in CI by `scripts/verify_docs.py`.
 
 ## 6 · Dataset
 
@@ -122,9 +132,17 @@ contributes 6 trading days at the run date. Documented in §14.
 ## 7 · Data sources
 
 - **Yahoo Finance** via `yfinance` (daily adjusted OHLC) — fetched once, cached to
-  `data/raw/prices_daily.csv` (git-ignored; the repository never redistributes market data).
+  `data/raw/prices_daily.csv` (git-ignored; the repository never redistributes market
+  data). Since Phase 2 part B, downloads are windowed at the registered `AS_OF` pin
+  (`2026-10-08`) so a re-run reproduces the documented vintage instead of silently
+  extending the panel (yfinance's `end` is exclusive; one extra calendar day is applied
+  internally and documented in `data/prices.py`).
 - **FRED public CSV endpoint** (`fred.stlouisfed.org/graph/fredgraph.csv?id=…`) — no API
-  key; cached to `data/raw/fred_*.csv`.
+  key; cached to `data/raw/fred_*.csv`. **Availability note (Phase 2 part B):** at the
+  Phase-2 execution date the endpoint served HTML bot-challenge pages to this
+  environment (documented with HTTP evidence in the validation report); malformed
+  responses are detected and never cached, and the registered not-run rule records the
+  consequence for the forecast re-run instead of masking it.
 - No SEC/Wayback/proxy sources are used anywhere in this project.
 - The bundled headline sample is authored, versioned in git, and labeled as illustrative.
 
@@ -239,9 +257,9 @@ Actual outputs of the committed run — `reports/metrics.json`, rendered in
 
 **Market diagnostics (daily log returns):** every ticker rejects normality under
 Jarque-Bera (7/7 at 5%; excess kurtosis 4.6–13.7). ADF: log returns stationary for all
-seven (largest p ≈ 2.6e-18, XOM) while log prices are non-stationary (p 0.37–0.95).
+seven (largest p ≈ 2.6e-18, XOM) while log prices are non-stationary (p 0.35–0.95).
 Ljung-Box(20): significant autocorrelation in 6/7 series (AMZN p = 0.14 the exception).
-Sharpe (rf = 0): AAPL 0.80 (CAGR 27.6%) > MSFT 0.75 > SPY 0.72 > JPM 0.54 > AMZN 0.49 >
+Sharpe (rf = 0): AAPL 0.80 (CAGR 27.7%) > MSFT 0.75 > SPY 0.72 > JPM 0.55 > AMZN 0.48 >
 XOM 0.41 ≈ PG 0.42; SPY itself has the lowest vol of the seven (19.0% — the benchmark,
 not a stock pick; among the six single stocks PG is lowest at 20.0%), and XOM the deepest
 drawdown (−61.0%).
@@ -254,7 +272,7 @@ drawdown (−61.0%).
 | OLS | 3.30 | 1.53 | +2.87 | 0.004 | significantly **WORSE** |
 | Ridge | 3.28 | 1.52 | +2.81 | 0.005 | significantly **WORSE** |
 
-**No model beats the naive benchmark.** Both regressions are significantly worse in the
+**No model improves on the naive benchmark.** Both regressions are significantly worse in the
 direction-aware DM sense — the 2021–2022 inflation surge punished models anchored on
 lagged levels. This is the honest headline, consistent with sibling repo 02's finding that
 naive benchmarks are hard to beat at long horizons. Field semantics: `dm_significant` in
@@ -266,8 +284,8 @@ and 0.005 — they are significantly worse, not better.
 
 | Scheme | Sharpe (net) | CAGR | Vol | Max DD | Avg turnover | Cost drag |
 | --- | --- | --- | --- | --- | --- | --- |
-| Min variance | **1.36** | 21.8% | 15.5% | −18.4% | 0.555 | 1.72% |
-| Max Sharpe | **1.36** | 21.8% | 15.5% | −18.4% | 0.555 | 1.72% |
+| Min variance | **1.37** | 21.9% | 15.5% | −18.4% | 0.555 | 1.72% |
+| Max Sharpe | **1.37** | 21.9% | 15.5% | −18.4% | 0.555 | 1.72% |
 | Inverse vol | 1.24 | 19.9% | 15.7% | −21.3% | 0.152 | 0.47% |
 | Equal weight | 1.23 | 20.6% | 16.5% | −18.4% | 0.100 | 0.31% |
 
@@ -276,8 +294,46 @@ The max-Sharpe scheme triggered its documented min-variance fallback in **31/31 
 12-month estimates), so it coincides with min-variance — reported, not hidden. Every
 scheme reports `fallback_share` in `reports/portfolio.json`; in this run only max-Sharpe's
 is non-zero (equal, inverse-vol and min-variance never used their fallback paths). The
-optimizer's margin over equal weights is 0.13 Sharpe: modest, and attributable to variance
+optimizer's margin over equal weights is 0.14 Sharpe: modest, and attributable to variance
 reduction, not return forecasting.
+
+**Results uncertainty — pre-registered resampling suite (Phase 2, part B; circular block
+bootstrap, B = 2000, seed 42; plan in
+[`docs/admissions/PHASE2-P10-PLAN.md`](docs/admissions/PHASE2-P10-PLAN.md), artifacts in
+`reports/uncertainty.json`):**
+
+- **RQ1 — per-scheme Sharpe 95% CIs (block length 6 months; blocks {3, 12} registered as
+  sensitivity):** equal **1.23** [0.64, 1.98]; inverse-vol **1.24** [0.61, 2.02];
+  min-variance (= max-Sharpe) **1.37** [0.72, 2.12]. Every interval spans every other
+  scheme's point estimate — the 0.14 margin is well inside sampling noise at n = 93
+  monthly observations.
+- **RQ2 — pairwise Sharpe differences (paired bootstrap, Holm over the 3 distinct pairs):**
+
+  | Pair | Diff | 95% CI | raw p | Holm p |
+  | --- | --- | --- | --- | --- |
+  | equal − inv-vol | -0.02 | [-0.11, 0.08] | 0.670 | 1.000 |
+  | equal − min-var | -0.14 | [-0.39, 0.14] | 0.337 | 1.000 |
+  | inv-vol − min-var | -0.12 | [-0.33, 0.12] | 0.343 | 1.000 |
+
+  **0 of 3** differences survives Holm correction at family-wise α = 0.05. The
+  min-var/max-Sharpe pair is excluded a priori: the fallback makes the two series bitwise
+  identical (a structural fact, not a result).
+- **RQ3 — cost sensitivity (0–100 bps/side, grid {0, 10, 25, 50, 75, 100}):** no scheme
+  ordering flips anywhere on the grid (equal 1.23 → 1.21, min-variance 1.38 → 1.24;
+  exact affine recomputation from stored per-fold turnover charges, unit-pinned).
+- **RQ4 — sub-window rank stability (3 × 31 months, EXPLORATORY — underpowered by
+  construction):** adjacent-window Kendall τ 0.33 then -1.00 (mean -0.33); rank-1 counts
+  min-var 2/3, inv-vol 1/3, equal 0/3. Rankings are not stable across sub-windows.
+- **RQ5 — forecast-error bootstrap cross-check:** **not_run** in this environment — the
+  macro re-fetch (FRED) was unreachable at execution time (documented with evidence in
+  `docs/admissions/PHASE2-P10-VALIDATION-REPORT.md`). The machinery is implemented and
+  unit-tested on synthetic data; the committed DM tests in `reports/forecast.json`
+  remain the primary inferential tool for the forecasting stage.
+
+**The honest reading is unchanged and now calibrated:** the point-estimate ranking is not
+statistically distinguishable, the optimizer's advantage is variance reduction that does
+not survive multiplicity correction, and rank ordering itself is unstable across
+sub-windows — the same calibrated-null lesson as the sibling uncertainty study.
 
 **Risk (monthly OOS net returns, n = 93; positive = loss):**
 
@@ -312,10 +368,12 @@ Figures: [`fig01_prices_normalized.png`](figures/fig01_prices_normalized.png),
    chase level shifts and miss the 2021–2022 surge's turning point). Any portfolio or
    policy narrative built on "our model forecasts inflation" would have been fabricated.
 2. **The optimizer added variance reduction, not foresight.** Min-variance leads net Sharpe
-   by 0.13 over equal weights with 3.4× the turnover — the entire edge is a lower vol
+   by 0.14 over equal weights with 5.5× the turnover — the entire edge is a lower vol
    (15.5% vs 16.5%) during the 2022 drawdown, where it also recovered two months earlier.
    The tangency scheme's 100% fallback rate is itself evidence of how unstable mean-variance
-   optimization is on short windows (estimation error, DeMiguel et al. 2009).
+   optimization is on short windows (estimation error, DeMiguel et al. 2009) — and the
+   pre-registered resampling suite shows the 0.14 gap does not survive a block bootstrap
+   with Holm correction (§12, RQ2: 0 of 3 pairs).
 3. **Costs are visible and material at high turnover.** Min-variance paid 1.72% cumulative
    (vs 0.31% for equal weight) — roughly a tenth of its CAGR advantage; cost assumptions
    belong in the table, not in a footnote.
@@ -343,6 +401,14 @@ Figures: [`fig01_prices_normalized.png`](figures/fig01_prices_normalized.png),
 - *Portfolio:* 12-month covariance/mean estimates are noisy; SLSQP can stall on unscaled
   objectives (mitigated, documented); max-Sharpe is only defined through its fallback in
   this sample; one historical path, not a distribution; no rebalance-timing sensitivity.
+- *Uncertainty suite:* n = 93 monthly observations makes block-bootstrap CIs wide by
+  construction (RQ1 intervals span ~1.3 Sharpe units); the sub-window rank analysis is
+  exploratory with 3 windows and supports no inferential claim; the forecast-error
+  bootstrap (RQ5) was **not_run** in the Phase-2 execution environment (macro endpoint
+  unreachable — documented in the validation report) and remains implemented-but-
+  unexercised on real data; vintage re-runs after 2026-10-08 inherit provider-side
+  restatement of adjusted closes (settled last bar, mid-October dividend adjustments),
+  quantified in the validation report's delta table.
 - *Risk:* quantile estimates on 93 monthly points have first-order estimation error; VaR
   says nothing about losses beyond the quantile; Gaussian VaR understates fat tails (see
   fig08 — historical ≥ Gaussian in the tail, as expected).
