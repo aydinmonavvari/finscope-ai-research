@@ -433,7 +433,7 @@ python scripts/run_workbench.py ingest        # Yahoo Finance + FRED -> data/raw
 # 3) full cycle (6.6 s on cached data; well under the 8-min budget)
 python scripts/run_workbench.py all
 
-# 4) verify: lint + 51 offline unit tests (no network)
+# 4) verify: lint + 92 offline unit tests (no network)
 ruff check .
 pytest -q
 ```
@@ -505,7 +505,7 @@ finscope-ai-research/
 │   ├── nlp/sentiment.py       # VADER utility on the bundled illustrative sample
 │   └── reporting/             # brief.py (metrics.json + research brief), figures.py
 ├── scripts/run_workbench.py   # CLI: ingest|analyze|forecast|optimize|risk|report|all
-├── tests/                     # 51 offline tests (math vs hand-computed, no network)
+├── tests/                     # 92 offline tests (math vs hand-computed, no network)
 ├── data/raw/                  # git-ignored caches (.gitkeep tracked)
 ├── data/samples/              # sample_headlines.csv — the ONLY tracked data file
 ├── reports/                   # metrics.json, research_brief.md, stage fragments (committed)
