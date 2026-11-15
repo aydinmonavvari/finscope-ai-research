@@ -147,7 +147,7 @@ Two DM comparisons share one benchmark, so marginal p-values are read under an e
 Holm/Bonferroni-style caution with low power at n = 35 acknowledged. Cost sensitivity is
 structural, not incidental: turnover and cumulative cost drag are reported per scheme.
 Determinism: closed-form OLS/ridge/tangency and seeded scikit-learn make repeated runs on
-the same cache numerically identical. The offline test suite (51 tests) covers the math
+the same cache numerically identical. The offline test suite (92 tests) covers the math
 against hand-computed values — log returns, Sharpe, drawdown, MASE, DM lag-0 equivalence
 to a t-test, SLSQP cap behavior, tangency and min-variance/inverse-vol fallback paths,
 rebalance-cost arithmetic,
